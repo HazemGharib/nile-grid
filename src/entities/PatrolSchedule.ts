@@ -30,7 +30,7 @@ export function createPatrolEnemy(
 export function getPatrolPosition(
   route: PatrolRoute,
   gameTimeMs: number
-): { position: Position; waypointIndex: number } {
+): { position: Position; waypointIndex: number; direction: 'up' | 'down' | 'left' | 'right' } {
   const cycleTime = (gameTimeMs + route.startTimeOffset) % route.cycleDurationMs;
   const segmentCount = route.waypoints.length;
   const segmentDuration = route.cycleDurationMs / segmentCount;
@@ -44,9 +44,21 @@ export function getPatrolPosition(
   const x = startWaypoint.x + (endWaypoint.x - startWaypoint.x) * segmentProgress;
   const y = startWaypoint.y + (endWaypoint.y - startWaypoint.y) * segmentProgress;
   
+  // Determine movement direction
+  const dx = endWaypoint.x - startWaypoint.x;
+  const dy = endWaypoint.y - startWaypoint.y;
+  let direction: 'up' | 'down' | 'left' | 'right' = 'down';
+  
+  if (Math.abs(dx) > Math.abs(dy)) {
+    direction = dx > 0 ? 'right' : 'left';
+  } else {
+    direction = dy > 0 ? 'down' : 'up';
+  }
+  
   return {
     position: { x, y },
-    waypointIndex: currentSegmentIndex
+    waypointIndex: currentSegmentIndex,
+    direction
   };
 }
 

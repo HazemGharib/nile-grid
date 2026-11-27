@@ -13,8 +13,13 @@ interface MapChunk {
   loaded: boolean;
 }
 
+type TileType = 'water' | 'water_highlight' | 'sand' | 'road' | 'road_curb_top' | 'road_curb_bottom' |
+  'grass' | 'quay' | 'quay_edge' | 'building_roof' | 'building_wall' | 'building_wall_dark' |
+  'palm' | 'neon_magenta' | 'neon_cyan' | 'lamp' | 'railway' | 'bridge' | 'boat';
+
 export class GameScene extends Phaser.Scene {
   private player!: Phaser.GameObjects.Sprite;
+  private drone!: Phaser.GameObjects.Sprite;
   private inputManager!: InputManager;
   private gameState!: GameState;
   
@@ -27,6 +32,7 @@ export class GameScene extends Phaser.Scene {
   private playerContainer!: Phaser.GameObjects.Container;
   
   private interactableTarget: string | null = null;
+  private lastDirection: string = 'down';
 
   constructor() {
     super({ key: 'GameScene' });
@@ -34,6 +40,9 @@ export class GameScene extends Phaser.Scene {
 
   create(): void {
     this.gameState = GameState.getInstance();
+    
+    // Enable pixel-perfect rendering
+    this.cameras.main.setRoundPixels(true);
     
     this.setupMap();
     this.setupPlayer();
@@ -72,7 +81,7 @@ export class GameScene extends Phaser.Scene {
         const key = `${cx}_${cy}`;
         const container = this.add.container(cx * chunkPx, cy * chunkPx);
         
-        this.generateChunkContent(container, cx, cy, chunkPx);
+        this.generateNileNeonChunk(container, cx, cy, chunkPx);
         
         this.chunks.set(key, {
           x: cx,
@@ -86,97 +95,204 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  private generateChunkContent(container: Phaser.GameObjects.Container, chunkX: number, chunkY: number, size: number): void {
+  private generateNileNeonChunk(container: Phaser.GameObjects.Container, chunkX: number, chunkY: number, size: number): void {
     const tileSize = GameConfig.TILE_SIZE;
     const tilesPerChunk = size / tileSize;
     
+    // Deterministic random based on chunk position
     const baseSeed = chunkX * 1000 + chunkY;
     const random = (offset: number) => {
       const x = Math.sin(baseSeed + offset) * 10000;
       return x - Math.floor(x);
     };
 
-    const tileGrid: string[][] = [];
+    // Create tile grid - night-time Ismailia style
+    const tileGrid: TileType[][] = [];
     for (let ty = 0; ty < tilesPerChunk; ty++) {
       tileGrid[ty] = [];
       for (let tx = 0; tx < tilesPerChunk; tx++) {
-        tileGrid[ty][tx] = 'tile_sand';
+        // Base terrain: sand in most areas
+        tileGrid[ty][tx] = 'sand';
       }
     }
 
-    for (let i = 0; i < 5; i++) {
-      const roadStartTile = Math.floor(random(i * 10) * tilesPerChunk);
-      const roadWidthTiles = 1 + Math.floor(random(i * 10 + 1) * 2);
-      for (let ty = 0; ty < tilesPerChunk; ty++) {
-        for (let w = 0; w < roadWidthTiles; w++) {
-          const tx = roadStartTile + w;
-          if (tx < tilesPerChunk) {
-            tileGrid[ty][tx] = 'tile_road';
+    // Water zones (canal and lake areas based on chunk position)
+    const isLakeArea = chunkY > 12 || (chunkX > 12 && chunkY > 8);
+    const isCanalArea = (chunkX > 5 && chunkX < 15 && chunkY > 10);
+    
+    if (isLakeArea || isCanalArea) {
+      const waterStartRow = isCanalArea ? Math.floor(tilesPerChunk * 0.6) : Math.floor(tilesPerChunk * 0.4);
+      for (let ty = waterStartRow; ty < tilesPerChunk; ty++) {
+        for (let tx = 0; tx < tilesPerChunk; tx++) {
+          // Quay edge at transition
+          if (ty === waterStartRow) {
+            tileGrid[ty][tx] = 'quay_edge';
+          } else if (ty === waterStartRow + 1) {
+            tileGrid[ty][tx] = 'quay';
+          } else {
+            // Water with occasional highlights (lamp reflections)
+            if (random(tx + ty * 100) < 0.1) {
+              tileGrid[ty][tx] = 'water_highlight';
+            } else {
+              tileGrid[ty][tx] = 'water';
+            }
           }
         }
       }
-    }
-
-    for (let i = 0; i < 3; i++) {
-      const roadStartTile = Math.floor(random(i * 20 + 100) * tilesPerChunk);
-      const roadWidthTiles = 1 + Math.floor(random(i * 20 + 101) * 2);
-      for (let tx = 0; tx < tilesPerChunk; tx++) {
-        for (let w = 0; w < roadWidthTiles; w++) {
-          const ty = roadStartTile + w;
-          if (ty < tilesPerChunk) {
-            tileGrid[ty][tx] = 'tile_road';
-          }
-        }
-      }
-    }
-
-    for (let i = 0; i < 8; i++) {
-      const bxTile = Math.floor(random(i * 30 + 200) * (tilesPerChunk - 4));
-      const byTile = Math.floor(random(i * 30 + 201) * (tilesPerChunk - 4));
-      const bwTiles = 2 + Math.floor(random(i * 30 + 202) * 3);
-      const bhTiles = 2 + Math.floor(random(i * 30 + 203) * 3);
       
-      for (let dy = 0; dy < bhTiles; dy++) {
-        for (let dx = 0; dx < bwTiles; dx++) {
+      // Add bridge crossing
+      if (chunkX === 10 || chunkX === 8) {
+        const bridgeCol = Math.floor(tilesPerChunk * 0.5);
+        for (let ty = waterStartRow; ty < tilesPerChunk; ty++) {
+          for (let bw = 0; bw < 3; bw++) {
+            if (bridgeCol + bw < tilesPerChunk) {
+              tileGrid[ty][bridgeCol + bw] = 'bridge';
+            }
+          }
+        }
+      }
+      
+      // Add boats
+      if (random(500) < 0.3 && chunkY > 13) {
+        const boatX = Math.floor(random(501) * (tilesPerChunk - 2)) + 1;
+        const boatY = waterStartRow + 3 + Math.floor(random(502) * 3);
+        if (boatY < tilesPerChunk) {
+          tileGrid[boatY][boatX] = 'boat';
+        }
+      }
+    }
+
+    // Roads - main arteries
+    const hasMainRoad = chunkX % 3 === 0 || chunkY % 4 === 0;
+    if (hasMainRoad) {
+      // Vertical road
+      if (chunkX % 3 === 0) {
+        const roadCol = Math.floor(tilesPerChunk * 0.4);
+        for (let ty = 0; ty < tilesPerChunk; ty++) {
+          if (tileGrid[ty][roadCol] === 'sand') {
+            tileGrid[ty][roadCol] = 'road_curb_top';
+            if (roadCol + 1 < tilesPerChunk && tileGrid[ty][roadCol + 1] === 'sand') {
+              tileGrid[ty][roadCol + 1] = 'road';
+            }
+            if (roadCol + 2 < tilesPerChunk && tileGrid[ty][roadCol + 2] === 'sand') {
+              tileGrid[ty][roadCol + 2] = 'road_curb_bottom';
+            }
+          }
+        }
+      }
+      // Horizontal road
+      if (chunkY % 4 === 0) {
+        const roadRow = Math.floor(tilesPerChunk * 0.3);
+        for (let tx = 0; tx < tilesPerChunk; tx++) {
+          if (tileGrid[roadRow][tx] === 'sand') {
+            tileGrid[roadRow][tx] = 'road_curb_top';
+          }
+          if (roadRow + 1 < tilesPerChunk && tileGrid[roadRow + 1][tx] === 'sand') {
+            tileGrid[roadRow + 1][tx] = 'road';
+          }
+          if (roadRow + 2 < tilesPerChunk && tileGrid[roadRow + 2][tx] === 'sand') {
+            tileGrid[roadRow + 2][tx] = 'road_curb_bottom';
+          }
+        }
+      }
+    }
+
+    // Railway (top of map)
+    if (chunkY === 0 || chunkY === 1) {
+      const railRow = chunkY === 0 ? tilesPerChunk - 2 : 2;
+      for (let tx = 0; tx < tilesPerChunk; tx++) {
+        tileGrid[railRow][tx] = 'railway';
+      }
+    }
+
+    // Buildings - colonial style with roofs and walls
+    const numBuildings = 3 + Math.floor(random(300) * 4);
+    for (let i = 0; i < numBuildings; i++) {
+      const bxTile = Math.floor(random(i * 30 + 200) * (tilesPerChunk - 6)) + 1;
+      const byTile = Math.floor(random(i * 30 + 201) * (tilesPerChunk - 6)) + 1;
+      const bwTiles = 3 + Math.floor(random(i * 30 + 202) * 3);
+      const bhTiles = 3 + Math.floor(random(i * 30 + 203) * 3);
+      
+      // Check if area is clear (not water/road)
+      let canPlace = true;
+      for (let dy = 0; dy < bhTiles && canPlace; dy++) {
+        for (let dx = 0; dx < bwTiles && canPlace; dx++) {
           const ty = byTile + dy;
           const tx = bxTile + dx;
-          if (ty < tilesPerChunk && tx < tilesPerChunk) {
-            if (dy === 0 || dy === bhTiles - 1 || dx === 0 || dx === bwTiles - 1) {
-              tileGrid[ty][tx] = 'tile_building_wall';
-            } else {
-              tileGrid[ty][tx] = 'tile_building';
+          if (ty >= tilesPerChunk || tx >= tilesPerChunk) canPlace = false;
+          else if (tileGrid[ty][tx] !== 'sand') canPlace = false;
+        }
+      }
+      
+      if (canPlace) {
+        for (let dy = 0; dy < bhTiles; dy++) {
+          for (let dx = 0; dx < bwTiles; dx++) {
+            const ty = byTile + dy;
+            const tx = bxTile + dx;
+            
+            // Top row: roof
+            if (dy === 0) {
+              tileGrid[ty][tx] = 'building_roof';
+            } 
+            // Front wall with windows/neon
+            else if (dy === bhTiles - 1) {
+              // Add neon signs occasionally
+              if (dx === Math.floor(bwTiles / 2) && random(i * 100 + dx) < 0.3) {
+                tileGrid[ty][tx] = random(i * 101) < 0.5 ? 'neon_magenta' : 'neon_cyan';
+              } else {
+                tileGrid[ty][tx] = 'building_wall';
+              }
+            }
+            // Side walls
+            else if (dx === 0 || dx === bwTiles - 1) {
+              tileGrid[ty][tx] = 'building_wall_dark';
+            }
+            // Interior roof
+            else {
+              tileGrid[ty][tx] = 'building_roof';
             }
           }
         }
       }
     }
 
-    const isWaterChunk = chunkY > 15 || (chunkX > 10 && chunkY > 10);
-    if (isWaterChunk) {
-      const waterStartRow = Math.floor(tilesPerChunk * 0.7);
-      for (let ty = waterStartRow; ty < tilesPerChunk; ty++) {
-        for (let tx = 0; tx < tilesPerChunk; tx++) {
-          if (ty === waterStartRow) {
-            tileGrid[ty][tx] = 'tile_canal';
-          } else {
-            tileGrid[ty][tx] = 'tile_water';
-          }
-        }
-      }
-      
-      const bridgeX = Math.floor(tilesPerChunk * 0.4);
-      for (let ty = waterStartRow; ty < tilesPerChunk; ty++) {
-        for (let bw = 0; bw < 2; bw++) {
-          if (bridgeX + bw < tilesPerChunk) {
-            tileGrid[ty][bridgeX + bw] = 'tile_bridge';
+    // Palm trees and grass patches
+    for (let i = 0; i < 5; i++) {
+      const px = Math.floor(random(i * 50 + 400) * tilesPerChunk);
+      const py = Math.floor(random(i * 50 + 401) * tilesPerChunk);
+      if (px < tilesPerChunk && py < tilesPerChunk && tileGrid[py][px] === 'sand') {
+        tileGrid[py][px] = 'palm';
+        // Grass around palm
+        for (let gx = -1; gx <= 1; gx++) {
+          for (let gy = -1; gy <= 1; gy++) {
+            const gpx = px + gx;
+            const gpy = py + gy;
+            if (gpx >= 0 && gpx < tilesPerChunk && gpy >= 0 && gpy < tilesPerChunk) {
+              if (tileGrid[gpy][gpx] === 'sand') {
+                tileGrid[gpy][gpx] = 'grass';
+              }
+            }
           }
         }
       }
     }
 
+    // Street lamps along roads
+    for (let tx = 0; tx < tilesPerChunk; tx++) {
+      for (let ty = 0; ty < tilesPerChunk; ty++) {
+        if (tileGrid[ty][tx] === 'road' || tileGrid[ty][tx] === 'road_curb_top') {
+          // Place lamp every 8 tiles
+          if (tx % 8 === 0 && ty > 0 && tileGrid[ty - 1][tx] === 'sand') {
+            tileGrid[ty - 1][tx] = 'lamp';
+          }
+        }
+      }
+    }
+
+    // Render tiles
     for (let ty = 0; ty < tilesPerChunk; ty++) {
       for (let tx = 0; tx < tilesPerChunk; tx++) {
-        const tileKey = tileGrid[ty][tx];
+        const tileKey = `tile_${tileGrid[ty][tx]}`;
         const tile = this.add.image(tx * tileSize, ty * tileSize, tileKey);
         tile.setOrigin(0, 0);
         container.add(tile);
@@ -194,8 +310,16 @@ export class GameScene extends Phaser.Scene {
     const characterId = this.gameState.getState().player.characterId;
     this.player = this.add.sprite(0, 0, characterId);
     this.player.setOrigin(0.5, 1);
+    this.player.play(`${characterId}_idle_down`);
     
     this.playerContainer.add(this.player);
+    
+    // Add drone for Adel
+    this.drone = this.add.sprite(12, -20, 'bulbul');
+    this.drone.setOrigin(0.5, 0.5);
+    this.drone.play('bulbul_hover');
+    this.drone.setVisible(characterId === 'adel');
+    this.playerContainer.add(this.drone);
     
     const nameTag = this.add.text(0, -40, CharacterStats[characterId].name, {
       fontSize: '8px',
@@ -215,9 +339,17 @@ export class GameScene extends Phaser.Scene {
   }
 
   private setupCamera(): void {
-    this.cameras.main.startFollow(this.playerContainer, true, GameConfig.CAMERA_LERP, GameConfig.CAMERA_LERP);
-    this.cameras.main.setZoom(2);
-    this.cameras.main.setBounds(0, 0, 1500 * GameConfig.TILE_SIZE, 800 * GameConfig.TILE_SIZE);
+    const cam = this.cameras.main;
+    
+    // Pixel-perfect camera settings
+    cam.setRoundPixels(true);
+    cam.setZoom(3);  // Integer zoom for pixel-perfect rendering
+    
+    cam.startFollow(this.playerContainer, true, 0.1, 0.1);
+    cam.setBounds(0, 0, 1500 * GameConfig.TILE_SIZE, 800 * GameConfig.TILE_SIZE);
+    
+    // Deadzone to reduce camera movement jitter
+    cam.setDeadzone(32, 32);
   }
 
   private setupEnemies(): void {
@@ -233,6 +365,7 @@ export class GameScene extends Phaser.Scene {
         enemyState.position.y,
         'enemy'
       ).setOrigin(0.5, 1);
+      enemySprite.play('enemy_idle_down');
       
       this.enemies.set(enemyState.id, enemySprite);
       
@@ -315,7 +448,8 @@ export class GameScene extends Phaser.Scene {
     relevantLandmarks.forEach(landmark => {
       const container = this.add.container(landmark.pixelPosition.x + 800, landmark.pixelPosition.y + 600);
       
-      const building = this.add.rectangle(0, 0, 48, 48, Colors.BUILDING);
+      // Use building tiles for landmark visualization
+      const building = this.add.rectangle(0, 0, 48, 48, 0x1a1a2e);
       building.setStrokeStyle(2, Colors.NEON_MAGENTA);
       
       const label = this.add.text(0, -35, landmark.nameEn, {
@@ -354,6 +488,12 @@ export class GameScene extends Phaser.Scene {
     this.checkObjectives();
     this.checkDetection();
     this.updateChunkLoading();
+    
+    // Update drone position (follows player with slight delay)
+    if (this.drone.visible) {
+      const offset = Math.sin(time * 0.003) * 2;
+      this.drone.setPosition(12, -20 + offset);
+    }
   }
 
   private handlePlayerMovement(input: { moveX: number; moveY: number; sprint: boolean }): void {
@@ -373,19 +513,37 @@ export class GameScene extends Phaser.Scene {
     const body = this.playerContainer.body as Phaser.Physics.Arcade.Body;
     body.setVelocity(input.moveX * speed, input.moveY * speed);
     
+    const characterId = state.player.characterId;
+    
     if (input.moveX !== 0 || input.moveY !== 0) {
       this.gameState.updatePlayerVelocity({ x: input.moveX, y: input.moveY });
       
+      // Determine direction based on input
+      let direction = this.lastDirection;
       if (Math.abs(input.moveX) > Math.abs(input.moveY)) {
-        this.gameState.setPlayerFacing(input.moveX > 0 ? 'right' : 'left');
+        direction = input.moveX > 0 ? 'right' : 'left';
       } else {
-        this.gameState.setPlayerFacing(input.moveY > 0 ? 'down' : 'up');
+        direction = input.moveY > 0 ? 'down' : 'up';
       }
+      this.lastDirection = direction;
+      this.gameState.setPlayerFacing(direction as 'up' | 'down' | 'left' | 'right');
       
-      this.player.play(`${state.player.characterId}_walk`, true);
+      // Play directional walk animation
+      const animKey = `${characterId}_walk_${direction}`;
+      if (this.player.anims.currentAnim?.key !== animKey) {
+        this.player.play(animKey, true);
+      }
     } else {
-      this.player.play(`${state.player.characterId}_idle`, true);
+      // Play directional idle animation
+      const animKey = `${characterId}_idle_${this.lastDirection}`;
+      if (this.player.anims.currentAnim?.key !== animKey) {
+        this.player.play(animKey, true);
+      }
     }
+    
+    // Round position for pixel-perfect rendering
+    this.playerContainer.x = Math.round(this.playerContainer.x);
+    this.playerContainer.y = Math.round(this.playerContainer.y);
     
     this.gameState.updatePlayerPosition({ 
       x: this.playerContainer.x, 
@@ -410,9 +568,13 @@ export class GameScene extends Phaser.Scene {
     const nextCharacter = characters[nextIndex];
     
     this.gameState.switchCharacter(nextCharacter);
-    this.player.setTexture(`character_${nextCharacter}`);
+    this.player.setTexture(nextCharacter);
+    this.player.play(`${nextCharacter}_idle_${this.lastDirection}`);
     
-    const nameTag = this.playerContainer.list[1] as Phaser.GameObjects.Text;
+    // Show/hide drone based on character
+    this.drone.setVisible(nextCharacter === 'adel');
+    
+    const nameTag = this.playerContainer.list[2] as Phaser.GameObjects.Text;
     if (nameTag) {
       nameTag.setText(CharacterStats[nextCharacter].name);
     }
@@ -484,8 +646,16 @@ export class GameScene extends Phaser.Scene {
       const enemySprite = this.enemies.get(enemyId);
       
       if (enemySprite) {
-        const { position } = getPatrolPosition(route, state.gameTime);
-        enemySprite.setPosition(position.x, position.y);
+        const { position, direction } = getPatrolPosition(route, state.gameTime);
+        enemySprite.setPosition(Math.round(position.x), Math.round(position.y));
+        
+        // Update enemy animation based on movement direction
+        if (direction) {
+          const animKey = `enemy_walk_${direction}`;
+          if (enemySprite.anims.currentAnim?.key !== animKey) {
+            enemySprite.play(animKey, true);
+          }
+        }
         
         this.gameState.updateEnemy(enemyId, { position });
       }

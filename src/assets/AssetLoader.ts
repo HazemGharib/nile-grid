@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 
 export function loadGameAssets(scene: Phaser.Scene): void {
   // Character spritesheets (96x128, 4 directions x 4 frames each)
+  // Layout: 4 columns (frames) x 4 rows (down, left, right, up)
   scene.load.spritesheet('nour', '/sprites/nour.png', {
     frameWidth: 24,
     frameHeight: 32
@@ -18,18 +19,25 @@ export function loadGameAssets(scene: Phaser.Scene): void {
     frameWidth: 24,
     frameHeight: 32
   });
+  
+  // Drone Bulbul
+  scene.load.spritesheet('bulbul', '/sprites/bulbul.png', {
+    frameWidth: 16,
+    frameHeight: 16
+  });
 
-  // Tile images
-  scene.load.image('tile_road', '/tiles/road.png');
-  scene.load.image('tile_sand', '/tiles/sand.png');
-  scene.load.image('tile_building', '/tiles/building.png');
-  scene.load.image('tile_water', '/tiles/water.png');
-  scene.load.image('tile_canal', '/tiles/canal.png');
-  scene.load.image('tile_bridge', '/tiles/bridge.png');
-  scene.load.image('tile_grass', '/tiles/grass.png');
-  scene.load.image('tile_building_wall', '/tiles/building_wall.png');
+  // Environment tiles (16x16) - Nile Neon night-time style
+  const tiles = [
+    'water', 'water_highlight', 'sand', 'road', 'road_curb_top', 'road_curb_bottom',
+    'grass', 'quay', 'quay_edge', 'building_roof', 'building_wall', 'building_wall_dark',
+    'palm', 'neon_magenta', 'neon_cyan', 'lamp', 'railway', 'bridge', 'boat'
+  ];
+  
+  for (const tile of tiles) {
+    scene.load.image(`tile_${tile}`, `/tiles/${tile}.png`);
+  }
 
-  // Character portraits
+  // Character portraits (64x64) with expressions
   const characters = ['nour', 'adel', 'laila', 'enemy', 'umm_sayed', 'karim', 'hajj_rashid'];
   const emotions = ['neutral', 'happy', 'concerned'];
   
@@ -42,12 +50,13 @@ export function loadGameAssets(scene: Phaser.Scene): void {
 
 export function createCharacterAnimations(scene: Phaser.Scene): void {
   const characters = ['nour', 'adel', 'laila', 'enemy'];
+  // Direction order in spritesheet: down (row 0), left (row 1), right (row 2), up (row 3)
   const directions = ['down', 'left', 'right', 'up'];
 
   for (const char of characters) {
     for (let dirIdx = 0; dirIdx < directions.length; dirIdx++) {
       const dir = directions[dirIdx];
-      const startFrame = dirIdx * 4;
+      const startFrame = dirIdx * 4;  // Each row has 4 frames
       
       // Idle animation (single frame)
       scene.anims.create({
@@ -84,4 +93,12 @@ export function createCharacterAnimations(scene: Phaser.Scene): void {
       repeat: -1
     });
   }
+  
+  // Drone animation
+  scene.anims.create({
+    key: 'bulbul_hover',
+    frames: scene.anims.generateFrameNumbers('bulbul', { start: 0, end: 3 }),
+    frameRate: 6,
+    repeat: -1
+  });
 }
