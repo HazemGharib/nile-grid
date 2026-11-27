@@ -25,10 +25,8 @@ export function getSpritesIndex(): SpriteInfo[] {
   return spritesIndex;
 }
 
-export async function loadSpritesIndex(): Promise<SpriteInfo[]> {
-  const response = await fetch('/art/sprites/sprites.json');
-  spritesIndex = await response.json();
-  return spritesIndex;
+export function setSpritesIndex(data: SpriteInfo[]): void {
+  spritesIndex = data;
 }
 
 export function loadGameAssets(scene: Phaser.Scene): void {

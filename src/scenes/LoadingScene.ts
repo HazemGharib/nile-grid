@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { Colors } from '../config/GameConfig';
-import { loadGameAssets, createCharacterAnimations, loadSpritesIndex } from '../assets/AssetLoader';
+import { loadGameAssets, createCharacterAnimations, setSpritesIndex } from '../assets/AssetLoader';
 
 export class LoadingScene extends Phaser.Scene {
   private loadingText!: Phaser.GameObjects.Text;
@@ -8,12 +8,13 @@ export class LoadingScene extends Phaser.Scene {
   private progressBox!: Phaser.GameObjects.Graphics;
   private neonGlow!: Phaser.GameObjects.Graphics;
   private animationTimer = 0;
+  private spritesLoaded = false;
 
   constructor() {
     super({ key: 'LoadingScene' });
   }
 
-  async preload(): Promise<void> {
+  preload(): void {
     const { width, height } = this.scale;
     const centerX = width / 2;
     const centerY = height / 2;
@@ -48,14 +49,6 @@ export class LoadingScene extends Phaser.Scene {
 
     this.drawNeonGlow(centerX, centerY - 45);
 
-    // First load the sprites index, then load all game assets
-    try {
-      await loadSpritesIndex();
-      this.loadingText.setText('Loading assets...');
-    } catch (err) {
-      console.warn('Failed to load sprites index, continuing with empty list');
-    }
-
     this.load.on('progress', (value: number) => {
       this.progressBar.clear();
       this.progressBar.fillStyle(Colors.NEON_MAGENTA, 1);
@@ -63,6 +56,9 @@ export class LoadingScene extends Phaser.Scene {
     });
 
     this.load.on('complete', () => {
+      if (!this.spritesLoaded) {
+        return;
+      }
       this.loadingText.setText('Ready!');
       createCharacterAnimations(this);
       this.time.delayedCall(500, () => {
@@ -70,7 +66,15 @@ export class LoadingScene extends Phaser.Scene {
       });
     });
 
-    loadGameAssets(this);
+    this.load.on('filecomplete-json-sprites-index', (_key: string, _type: string, data: unknown) => {
+      setSpritesIndex(data as Array<{ name: string; file: string; size: [number, number]; tiles: [number, number]; group: string }>);
+      this.loadingText.setText('Loading assets...');
+      this.spritesLoaded = true;
+      loadGameAssets(this);
+      this.load.start();
+    });
+
+    this.load.json('sprites-index', '/art/sprites/sprites.json');
   }
 
   private drawNeonGlow(x: number, y: number): void {
