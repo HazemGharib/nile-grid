@@ -1,0 +1,714 @@
+{
+  "origin": {
+    "lat": 30.59193,
+    "lon": 32.28185,
+    "name": "Abdel Moneim Riad Square"
+  },
+  "projection": "local equirectangular; x=east metres, y=south metres (screen axes)",
+  "tile_px": 16,
+  "scales_m_per_tile": {
+    "compressed_20m": 20.0,
+    "detailed_10m": 10.0
+  },
+  "level_bbox": {
+    "s": 30.578,
+    "n": 30.6035,
+    "w": 32.262,
+    "e": 32.316
+  },
+  "landmarks": [
+    {
+      "n": 1,
+      "id": "sca_guidance",
+      "name_en": "Suez Canal Authority - Ships' Guidance (Irshad) Building",
+      "name_ar": "مبنى الإرشاد - هيئة قناة السويس",
+      "lat": 30.58852,
+      "lon": 32.28231,
+      "kind": "building",
+      "source": "OSM way 97205818 + Wikivoyage(de)",
+      "source_url": "https://www.openstreetmap.org/way/97205818",
+      "relative_note": "hero landmark on Lake Timsah north shore",
+      "metres_from_origin": {
+        "x": 44,
+        "y": 377
+      },
+      "in_level_1": true,
+      "tile": {
+        "compressed_20m": {
+          "x": 97,
+          "y": 83
+        },
+        "detailed_10m": {
+          "x": 195,
+          "y": 166
+        }
+      }
+    },
+    {
+      "n": 2,
+      "id": "lake_timsah",
+      "name_en": "Lake Timsah (centre)",
+      "name_ar": "بحيرة التمساح",
+      "lat": 30.57778,
+      "lon": 32.28889,
+      "kind": "water",
+      "source": "Wikidata Q1724581 / OSM relation 5809452",
+      "source_url": "https://www.wikidata.org/wiki/Q1724581",
+      "relative_note": "big water body south/south-east of town",
+      "metres_from_origin": {
+        "x": 675,
+        "y": 1565
+      },
+      "in_level_1": false,
+      "tile": {
+        "compressed_20m": {
+          "x": 129,
+          "y": 142
+        },
+        "detailed_10m": {
+          "x": 258,
+          "y": 284
+        }
+      }
+    },
+    {
+      "n": 3,
+      "id": "suez_canal",
+      "name_en": "Suez Canal at Nemra 6 ferry",
+      "name_ar": "قناة السويس - معدية نمرة 6",
+      "lat": 30.59016,
+      "lon": 32.30936,
+      "kind": "water",
+      "source": "Wikivoyage(de) marker 'Autofähre Nimra Sitta'",
+      "source_url": "https://de.wikivoyage.org/wiki/Ismailia",
+      "relative_note": "eastern edge of the map",
+      "metres_from_origin": {
+        "x": 2636,
+        "y": 196
+      },
+      "in_level_1": true,
+      "tile": {
+        "compressed_20m": {
+          "x": 227,
+          "y": 74
+        },
+        "detailed_10m": {
+          "x": 454,
+          "y": 148
+        }
+      }
+    },
+    {
+      "n": 4,
+      "id": "forsan_island",
+      "name_en": "El-Forsan island (Mercure hotel)",
+      "name_ar": "جزيرة الفرسان",
+      "lat": 30.58582,
+      "lon": 32.28802,
+      "kind": "area",
+      "source": "Wikivoyage(de) + Wikidata Q111857805",
+      "source_url": "https://www.wikidata.org/wiki/Q111857805",
+      "relative_note": "peninsula pushing into the lake, south-east of the Irshad building",
+      "metres_from_origin": {
+        "x": 591,
+        "y": 676
+      },
+      "in_level_1": true,
+      "tile": {
+        "compressed_20m": {
+          "x": 125,
+          "y": 98
+        },
+        "detailed_10m": {
+          "x": 249,
+          "y": 195
+        }
+      }
+    },
+    {
+      "n": 5,
+      "id": "forsan_beach",
+      "name_en": "El-Forsan beach (Tolip hotel)",
+      "name_ar": "شاطئ الفرسان",
+      "lat": 30.58435,
+      "lon": 32.2941,
+      "kind": "beach",
+      "source": "OSM way 745998248 (natural=beach)",
+      "source_url": "https://www.openstreetmap.org/way/745998248",
+      "relative_note": "lake beach east of Forsan",
+      "metres_from_origin": {
+        "x": 1174,
+        "y": 838
+      },
+      "in_level_1": true,
+      "tile": {
+        "compressed_20m": {
+          "x": 154,
+          "y": 106
+        },
+        "detailed_10m": {
+          "x": 308,
+          "y": 212
+        }
+      }
+    },
+    {
+      "n": 6,
+      "id": "mallaha_park",
+      "name_en": "Mallaha Park",
+      "name_ar": "حديقة الملاحة",
+      "lat": 30.59124,
+      "lon": 32.28357,
+      "kind": "park",
+      "source": "Wikivoyage(de) marker",
+      "source_url": "https://de.wikivoyage.org/wiki/Ismailia",
+      "relative_note": "garden right behind (north of) the Irshad building",
+      "metres_from_origin": {
+        "x": 165,
+        "y": 76
+      },
+      "in_level_1": true,
+      "tile": {
+        "compressed_20m": {
+          "x": 103,
+          "y": 68
+        },
+        "detailed_10m": {
+          "x": 207,
+          "y": 136
+        }
+      }
+    },
+    {
+      "n": 7,
+      "id": "ismailia_museum",
+      "name_en": "Ismailia (Archaeological) Museum",
+      "name_ar": "متحف الإسماعيلية",
+      "lat": 30.59299,
+      "lon": 32.28364,
+      "kind": "building",
+      "source": "OSM way 429911116 + Wikivoyage(de)",
+      "source_url": "https://www.openstreetmap.org/way/429911116",
+      "relative_note": "north edge of Mallaha park, Museum St.",
+      "metres_from_origin": {
+        "x": 172,
+        "y": -117
+      },
+      "in_level_1": true,
+      "tile": {
+        "compressed_20m": {
+          "x": 104,
+          "y": 58
+        },
+        "detailed_10m": {
+          "x": 207,
+          "y": 116
+        }
+      }
+    },
+    {
+      "n": 8,
+      "id": "abdel_moneim_riad_sq",
+      "name_en": "Abdel Moneim Riad Square (war memorial)",
+      "name_ar": "ميدان عبد المنعم رياض",
+      "lat": 30.59193,
+      "lon": 32.28185,
+      "kind": "square",
+      "source": "Wikivoyage(de) marker",
+      "source_url": "https://de.wikivoyage.org/wiki/Ismailia",
+      "relative_note": "map origin; between old town and waterfront",
+      "metres_from_origin": {
+        "x": 0,
+        "y": 0
+      },
+      "in_level_1": true,
+      "tile": {
+        "compressed_20m": {
+          "x": 95,
+          "y": 64
+        },
+        "detailed_10m": {
+          "x": 190,
+          "y": 128
+        }
+      }
+    },
+    {
+      "n": 9,
+      "id": "lesseps_house",
+      "name_en": "Ferdinand de Lesseps House",
+      "name_ar": "بيت ديليسبس",
+      "lat": 30.58948,
+      "lon": 32.27234,
+      "kind": "building",
+      "source": "Wikivoyage(de) marker",
+      "source_url": "https://de.wikivoyage.org/wiki/Ismailia",
+      "relative_note": "on Salah Salem St (old Mohamed Ali quay), south of the old town, north of the Sweet-Water canal",
+      "metres_from_origin": {
+        "x": -911,
+        "y": 271
+      },
+      "in_level_1": true,
+      "tile": {
+        "compressed_20m": {
+          "x": 50,
+          "y": 78
+        },
+        "detailed_10m": {
+          "x": 99,
+          "y": 155
+        }
+      }
+    },
+    {
+      "n": 10,
+      "id": "sca_admin_1920s",
+      "name_en": "SCA 'new' administration building (1920s, Paul Albert)",
+      "name_ar": "مبنى إدارة هيئة القناة القديم",
+      "lat": 30.5896,
+      "lon": 32.27272,
+      "kind": "building",
+      "source": "Wikivoyage(de) marker",
+      "source_url": "https://de.wikivoyage.org/wiki/Ismailia",
+      "relative_note": "right next to de Lesseps House",
+      "metres_from_origin": {
+        "x": -875,
+        "y": 258
+      },
+      "in_level_1": true,
+      "tile": {
+        "compressed_20m": {
+          "x": 51,
+          "y": 77
+        },
+        "detailed_10m": {
+          "x": 103,
+          "y": 154
+        }
+      }
+    },
+    {
+      "n": 11,
+      "id": "suez_canal_museum",
+      "name_en": "Suez Canal Museum",
+      "name_ar": "متحف قناة السويس",
+      "lat": 30.59017,
+      "lon": 32.27325,
+      "kind": "building",
+      "source": "Wikidata Q137799678 / OSM way 690921437",
+      "source_url": "https://www.wikidata.org/wiki/Q137799678",
+      "relative_note": "just north of de Lesseps House",
+      "metres_from_origin": {
+        "x": -824,
+        "y": 195
+      },
+      "in_level_1": true,
+      "tile": {
+        "compressed_20m": {
+          "x": 54,
+          "y": 74
+        },
+        "detailed_10m": {
+          "x": 108,
+          "y": 147
+        }
+      }
+    },
+    {
+      "n": 12,
+      "id": "sca_exhibition",
+      "name_en": "SCA Historical Exhibition",
+      "name_ar": "المعرض التاريخي لقناة السويس",
+      "lat": 30.58622,
+      "lon": 32.27257,
+      "kind": "building",
+      "source": "OSM way 690921438",
+      "source_url": "https://www.openstreetmap.org/way/690921438",
+      "relative_note": "south of the Sweet-Water canal, near the lake shore",
+      "metres_from_origin": {
+        "x": -889,
+        "y": 631
+      },
+      "in_level_1": true,
+      "tile": {
+        "compressed_20m": {
+          "x": 51,
+          "y": 96
+        },
+        "detailed_10m": {
+          "x": 101,
+          "y": 191
+        }
+      }
+    },
+    {
+      "n": 13,
+      "id": "sailing_club",
+      "name_en": "Sailing Club (lake shore)",
+      "name_ar": "نادي الشراع",
+      "lat": 30.58519,
+      "lon": 32.27222,
+      "kind": "building",
+      "source": "Wikivoyage(de) marker",
+      "source_url": "https://de.wikivoyage.org/wiki/Ismailia",
+      "relative_note": "western lake shore / beach strip",
+      "metres_from_origin": {
+        "x": -923,
+        "y": 745
+      },
+      "in_level_1": true,
+      "tile": {
+        "compressed_20m": {
+          "x": 49,
+          "y": 101
+        },
+        "detailed_10m": {
+          "x": 98,
+          "y": 202
+        }
+      }
+    },
+    {
+      "n": 14,
+      "id": "sweet_water_canal",
+      "name_en": "Sweet-Water (Ismailia) Canal at Bridge 3",
+      "name_ar": "ترعة الإسماعيلية (كوبري 3)",
+      "lat": 30.5891,
+      "lon": 32.2744,
+      "kind": "water",
+      "source": "OSM way 'Bridge 3' + Ismailia Canal ways",
+      "source_url": "https://www.openstreetmap.org/way/28621716",
+      "relative_note": "east-west canal separating the old town from the lake-side strip",
+      "metres_from_origin": {
+        "x": -714,
+        "y": 313
+      },
+      "in_level_1": true,
+      "tile": {
+        "compressed_20m": {
+          "x": 59,
+          "y": 80
+        },
+        "detailed_10m": {
+          "x": 119,
+          "y": 159
+        }
+      }
+    },
+    {
+      "n": 15,
+      "id": "abu_bakr_mosque",
+      "name_en": "Abu Bakr el-Siddiq Mosque",
+      "name_ar": "مسجد أبو بكر الصديق",
+      "lat": 30.5923,
+      "lon": 32.27271,
+      "kind": "building",
+      "source": "OSM way 473969623 + Wikivoyage(de)",
+      "source_url": "https://www.openstreetmap.org/way/473969623",
+      "relative_note": "old European quarter, 2 blocks east of the station",
+      "metres_from_origin": {
+        "x": -876,
+        "y": -41
+      },
+      "in_level_1": true,
+      "tile": {
+        "compressed_20m": {
+          "x": 51,
+          "y": 62
+        },
+        "detailed_10m": {
+          "x": 103,
+          "y": 124
+        }
+      }
+    },
+    {
+      "n": 16,
+      "id": "st_mark_cathedral",
+      "name_en": "St. Mark Cathedral",
+      "name_ar": "كاتدرائية مارمرقس",
+      "lat": 30.59142,
+      "lon": 32.27146,
+      "kind": "building",
+      "source": "Wikivoyage(de) / Commons category coords",
+      "source_url": "https://de.wikivoyage.org/wiki/Ismailia",
+      "relative_note": "old European quarter, south-east of the station",
+      "metres_from_origin": {
+        "x": -996,
+        "y": 56
+      },
+      "in_level_1": true,
+      "tile": {
+        "compressed_20m": {
+          "x": 45,
+          "y": 67
+        },
+        "detailed_10m": {
+          "x": 91,
+          "y": 134
+        }
+      }
+    },
+    {
+      "n": 17,
+      "id": "gumhuriya_sq",
+      "name_en": "Gumhuriya Square (ex Place Champollion)",
+      "name_ar": "ميدان الجمهورية",
+      "lat": 30.59162,
+      "lon": 32.2733,
+      "kind": "square",
+      "source": "Wikivoyage(de) marker",
+      "source_url": "https://de.wikivoyage.org/wiki/Ismailia",
+      "relative_note": "heart of the old European quarter (Hay el-Afrang)",
+      "metres_from_origin": {
+        "x": -819,
+        "y": 34
+      },
+      "in_level_1": true,
+      "tile": {
+        "compressed_20m": {
+          "x": 54,
+          "y": 66
+        },
+        "detailed_10m": {
+          "x": 108,
+          "y": 131
+        }
+      }
+    },
+    {
+      "n": 18,
+      "id": "mustafa_kamel_sq",
+      "name_en": "Mustafa Kamel Square (ex Place Leibnitz)",
+      "name_ar": "ميدان مصطفى كامل",
+      "lat": 30.5932,
+      "lon": 32.27859,
+      "kind": "square",
+      "source": "Wikivoyage(de) marker",
+      "source_url": "https://de.wikivoyage.org/wiki/Ismailia",
+      "relative_note": "centre of the old Greek quarter",
+      "metres_from_origin": {
+        "x": -312,
+        "y": -140
+      },
+      "in_level_1": true,
+      "tile": {
+        "compressed_20m": {
+          "x": 79,
+          "y": 57
+        },
+        "detailed_10m": {
+          "x": 159,
+          "y": 114
+        }
+      }
+    },
+    {
+      "n": 19,
+      "id": "railway_station",
+      "name_en": "Ismailia Railway Station",
+      "name_ar": "محطة قطار الإسماعيلية",
+      "lat": 30.59337,
+      "lon": 32.27008,
+      "kind": "building",
+      "source": "Wikidata Q135113619 / OSM way 97203257",
+      "source_url": "https://www.wikidata.org/wiki/Q135113619",
+      "relative_note": "far west of the core; railway line splits old town (south) from new town (north)",
+      "metres_from_origin": {
+        "x": -1128,
+        "y": -159
+      },
+      "in_level_1": true,
+      "tile": {
+        "compressed_20m": {
+          "x": 39,
+          "y": 56
+        },
+        "detailed_10m": {
+          "x": 77,
+          "y": 112
+        }
+      }
+    },
+    {
+      "n": 20,
+      "id": "orabi_sq",
+      "name_en": "Orabi Square (station forecourt)",
+      "name_ar": "ميدان عرابي",
+      "lat": 30.59265,
+      "lon": 32.27035,
+      "kind": "square",
+      "source": "Wikivoyage(de) marker",
+      "source_url": "https://de.wikivoyage.org/wiki/Ismailia",
+      "relative_note": "in front of the station",
+      "metres_from_origin": {
+        "x": -1102,
+        "y": -80
+      },
+      "in_level_1": true,
+      "tile": {
+        "compressed_20m": {
+          "x": 40,
+          "y": 60
+        },
+        "detailed_10m": {
+          "x": 80,
+          "y": 120
+        }
+      }
+    },
+    {
+      "n": 21,
+      "id": "ismaily_mosque",
+      "name_en": "Al-Ismaily Mosque",
+      "name_ar": "المسجد الإسماعيلي",
+      "lat": 30.59672,
+      "lon": 32.2712,
+      "kind": "building",
+      "source": "OSM way 97203275",
+      "source_url": "https://www.openstreetmap.org/way/97203275",
+      "relative_note": "north of the railway",
+      "metres_from_origin": {
+        "x": -1021,
+        "y": -530
+      },
+      "in_level_1": true,
+      "tile": {
+        "compressed_20m": {
+          "x": 44,
+          "y": 37
+        },
+        "detailed_10m": {
+          "x": 88,
+          "y": 75
+        }
+      }
+    },
+    {
+      "n": 22,
+      "id": "ismailia_stadium",
+      "name_en": "Ismailia Stadium (Ismaily SC)",
+      "name_ar": "ستاد الإسماعيلية",
+      "lat": 30.60194,
+      "lon": 32.27389,
+      "kind": "building",
+      "source": "Wikidata Q779930 / OSM way 97203203",
+      "source_url": "https://www.wikidata.org/wiki/Q779930",
+      "relative_note": "north of the railway, ~1 km north of the station",
+      "metres_from_origin": {
+        "x": -763,
+        "y": -1107
+      },
+      "in_level_1": true,
+      "tile": {
+        "compressed_20m": {
+          "x": 57,
+          "y": 9
+        },
+        "detailed_10m": {
+          "x": 114,
+          "y": 17
+        }
+      }
+    },
+    {
+      "n": 23,
+      "id": "sca_stadium",
+      "name_en": "Suez Canal Authority Stadium",
+      "name_ar": "ستاد هيئة قناة السويس",
+      "lat": 30.5927,
+      "lon": 32.2925,
+      "kind": "building",
+      "source": "Wikidata Q4118765 / OSM way 664459703",
+      "source_url": "https://www.wikidata.org/wiki/Q4118765",
+      "relative_note": "east of Mallaha park, towards the canal",
+      "metres_from_origin": {
+        "x": 1021,
+        "y": -85
+      },
+      "in_level_1": true,
+      "tile": {
+        "compressed_20m": {
+          "x": 146,
+          "y": 60
+        },
+        "detailed_10m": {
+          "x": 292,
+          "y": 119
+        }
+      }
+    },
+    {
+      "n": 24,
+      "id": "battle_memorial",
+      "name_en": "Battle of Ismailia (1973) Memorial",
+      "name_ar": "نصب معركة الإسماعيلية",
+      "lat": 30.58155,
+      "lon": 32.31034,
+      "kind": "monument",
+      "source": "Wikivoyage(de/en) marker",
+      "source_url": "https://de.wikivoyage.org/wiki/Ismailia",
+      "relative_note": "on the canal bank south-east, where lake meets canal",
+      "metres_from_origin": {
+        "x": 2730,
+        "y": 1148
+      },
+      "in_level_1": true,
+      "tile": {
+        "compressed_20m": {
+          "x": 232,
+          "y": 121
+        },
+        "detailed_10m": {
+          "x": 463,
+          "y": 243
+        }
+      }
+    },
+    {
+      "n": 25,
+      "id": "ferdan_bridge",
+      "name_en": "El-Ferdan Railway Swing Bridge (off-map)",
+      "name_ar": "كوبري الفردان",
+      "lat": 30.65714,
+      "lon": 32.33396,
+      "kind": "bridge",
+      "source": "Wikivoyage(de) marker / Wikidata Q610013",
+      "source_url": "https://www.wikidata.org/wiki/Q610013",
+      "relative_note": "~8 km north-north-east of the core - separate zone / later map",
+      "metres_from_origin": {
+        "x": 4993,
+        "y": -7211
+      },
+      "in_level_1": false,
+      "tile": {
+        "compressed_20m": {
+          "x": 345,
+          "y": -297
+        },
+        "detailed_10m": {
+          "x": 690,
+          "y": -593
+        }
+      }
+    }
+  ],
+  "level_size": {
+    "compressed_20m": {
+      "tiles_w": 259,
+      "tiles_h": 141,
+      "px_w": 4144,
+      "px_h": 2256
+    },
+    "detailed_10m": {
+      "tiles_w": 517,
+      "tiles_h": 282,
+      "px_w": 8272,
+      "px_h": 4512
+    }
+  },
+  "level_size_m": {
+    "w": 5175,
+    "h": 2820
+  }
+}
