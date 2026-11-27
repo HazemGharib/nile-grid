@@ -1,32 +1,67 @@
 import Phaser from 'phaser';
 import { GameConfig, Colors, CharacterStats, CharacterId } from '../config/GameConfig';
-import { GameState, Position } from '../state/GameState';
+import { GameState, Position, DialogueEntry } from '../state/GameState';
 import { InputManager } from '../input/InputManager';
-import { ismailiaLandmarks, getLandmarkById } from '../map/LandmarkData';
-import { getPatrolsForMission, createPatrolEnemy, getPatrolPosition, isPlayerDetected } from '../entities/PatrolSchedule';
-import { getDialogueForTrigger } from '../dialogue/DialogueData';
+import { mapCharacterIdToSpriteKey, PLAYABLE_CHARACTERS } from '../assets/AssetLoader';
 
-interface MapChunk {
+interface MapObject {
+  name: string;
   x: number;
   y: number;
-  container: Phaser.GameObjects.Container;
-  loaded: boolean;
+  width: number;
+  height: number;
+  properties: Record<string, unknown>;
+}
+
+interface PatrolRoute {
+  name: string;
+  points: Position[];
+  character: string;
+  mission: string;
+}
+
+interface MissionPoint {
+  name: string;
+  x: number;
+  y: number;
+  mission: string;
+  role?: string;
+  character?: string;
+}
+
+interface MapSprite {
+  sprite: Phaser.GameObjects.Image;
+  depthY: number;
+  x: number;
+  y: number;
+  visible: boolean;
 }
 
 export class GameScene extends Phaser.Scene {
   private player!: Phaser.GameObjects.Sprite;
+  private drone!: Phaser.GameObjects.Sprite;
   private inputManager!: InputManager;
   private gameState!: GameState;
   
-  private chunks: Map<string, MapChunk> = new Map();
+  private map!: Phaser.Tilemaps.Tilemap;
+  private collisionLayer!: Phaser.Tilemaps.TilemapLayer;
+  
+  private mapSprites: MapSprite[] = [];
+  private visibleSprites: Set<Phaser.GameObjects.Image> = new Set();
+  
   private enemies: Map<string, Phaser.GameObjects.Sprite> = new Map();
-  private landmarks: Map<string, Phaser.GameObjects.Container> = new Map();
+  private npcs: Map<string, Phaser.GameObjects.Sprite> = new Map();
   private objectives: Map<string, Phaser.GameObjects.Arc> = new Map();
   
-  private mapContainer!: Phaser.GameObjects.Container;
-  private playerContainer!: Phaser.GameObjects.Container;
+  private patrolRoutes: PatrolRoute[] = [];
+  private missionPoints: MissionPoint[] = [];
   
+  private playerContainer!: Phaser.GameObjects.Container;
   private interactableTarget: string | null = null;
+  private lastDirection: string = 'down';
+  
+  private cullBounds = { x: 0, y: 0, width: 0, height: 0 };
+  private cullMargin = 200; // pixels outside camera to keep loaded
 
   constructor() {
     super({ key: 'GameScene' });
@@ -35,12 +70,17 @@ export class GameScene extends Phaser.Scene {
   create(): void {
     this.gameState = GameState.getInstance();
     
-    this.setupMap();
+    // Pixel-perfect rendering
+    this.cameras.main.setRoundPixels(true);
+    
+    this.loadTiledMap();
+    this.loadMissionData();
+    this.loadPatrolRoutes();
     this.setupPlayer();
     this.setupCamera();
+    this.setupNPCs();
     this.setupEnemies();
     this.setupObjectives();
-    this.setupLandmarks();
     
     this.inputManager = new InputManager(this);
     
@@ -50,102 +90,153 @@ export class GameScene extends Phaser.Scene {
     this.triggerMissionStart();
   }
 
-  private setupMap(): void {
-    this.mapContainer = this.add.container(0, 0);
+  private loadTiledMap(): void {
+    this.map = this.make.tilemap({ key: 'ismailia' });
     
-    const mapWidth = 1500 * GameConfig.TILE_SIZE;
-    const mapHeight = 800 * GameConfig.TILE_SIZE;
+    // Add tilesets
+    const groundTileset = this.map.addTilesetImage('ismailia-m1-3-ground', 'ground');
+    const collisionTileset = this.map.addTilesetImage('collision', 'collision');
     
-    this.physics.world.setBounds(0, 0, mapWidth, mapHeight);
+    if (!groundTileset || !collisionTileset) {
+      console.error('Failed to load tilesets');
+      return;
+    }
     
-    this.generateMapChunks();
+    // Create layers
+    const groundLayerResult = this.map.createLayer('ground', groundTileset);
+    const collisionLayerResult = this.map.createLayer('collision', collisionTileset);
+    
+    if (!groundLayerResult || !collisionLayerResult) {
+      console.error('Failed to create map layers');
+      return;
+    }
+    
+    this.collisionLayer = collisionLayerResult;
+    this.collisionLayer.setVisible(false);
+    this.collisionLayer.setCollisionByExclusion([-1]);
+    
+    // Load sprite objects from the map
+    const spritesLayer = this.map.getObjectLayer('sprites');
+    if (spritesLayer) {
+      this.loadMapSprites(spritesLayer.objects as unknown as MapObject[]);
+    }
+    
+    // Set world bounds
+    this.physics.world.setBounds(0, 0, this.map.widthInPixels, this.map.heightInPixels);
   }
 
-  private generateMapChunks(): void {
-    const chunkTiles = GameConfig.CHUNK_SIZE;
-    const chunkPx = chunkTiles * GameConfig.TILE_SIZE;
-    const mapWidthChunks = Math.ceil(1500 / chunkTiles);
-    const mapHeightChunks = Math.ceil(800 / chunkTiles);
-    
-    for (let cy = 0; cy < Math.min(mapHeightChunks, 10); cy++) {
-      for (let cx = 0; cx < Math.min(mapWidthChunks, 20); cx++) {
-        const key = `${cx}_${cy}`;
-        const container = this.add.container(cx * chunkPx, cy * chunkPx);
-        
-        this.generateChunkContent(container, cx, cy, chunkPx);
-        
-        this.chunks.set(key, {
-          x: cx,
-          y: cy,
-          container,
-          loaded: true
-        });
-        
-        this.mapContainer.add(container);
+  private loadMapSprites(objects: MapObject[]): void {
+    objects.forEach(obj => {
+      const props = this.parseObjectProperties(obj);
+      const spriteKey = props.sprite as string;
+      
+      if (!spriteKey || !this.textures.exists(spriteKey)) {
+        return;
       }
-    }
+      
+      // Create sprite at position (x + width/2, y + height) with bottom-center origin
+      const sprite = this.add.image(
+        obj.x + obj.width / 2,
+        obj.y + obj.height,
+        spriteKey
+      );
+      sprite.setOrigin(0.5, 1);
+      
+      const depthY = (props.depthY as number) || (obj.y + obj.height);
+      sprite.setDepth(depthY);
+      
+      // Initially hide all sprites (will be shown by culling system)
+      sprite.setVisible(false);
+      
+      this.mapSprites.push({
+        sprite,
+        depthY,
+        x: obj.x + obj.width / 2,
+        y: obj.y + obj.height,
+        visible: false
+      });
+    });
+    
+    // Sort by depthY for proper rendering order
+    this.mapSprites.sort((a, b) => a.depthY - b.depthY);
   }
 
-  private generateChunkContent(container: Phaser.GameObjects.Container, chunkX: number, chunkY: number, size: number): void {
-    const graphics = this.add.graphics();
-    
-    const baseSeed = chunkX * 1000 + chunkY;
-    const random = (offset: number) => {
-      const x = Math.sin(baseSeed + offset) * 10000;
-      return x - Math.floor(x);
-    };
-    
-    graphics.fillStyle(Colors.SAND, 1);
-    graphics.fillRect(0, 0, size, size);
-    
-    for (let i = 0; i < 5; i++) {
-      const roadX = random(i * 10) * size;
-      const roadWidth = 16 + random(i * 10 + 1) * 16;
-      graphics.fillStyle(Colors.ROAD, 1);
-      graphics.fillRect(roadX, 0, roadWidth, size);
+  private parseObjectProperties(obj: MapObject): Record<string, unknown> {
+    const props: Record<string, unknown> = {};
+    if (Array.isArray((obj as unknown as { properties: Array<{name: string, value: unknown}> }).properties)) {
+      (obj as unknown as { properties: Array<{name: string, value: unknown}> }).properties.forEach(
+        (p: {name: string, value: unknown}) => {
+          props[p.name] = p.value;
+        }
+      );
     }
+    return props;
+  }
+
+  private loadMissionData(): void {
+    const missionsLayer = this.map.getObjectLayer('missions');
+    if (!missionsLayer) return;
     
-    for (let i = 0; i < 3; i++) {
-      const roadY = random(i * 20 + 100) * size;
-      const roadWidth = 16 + random(i * 20 + 101) * 16;
-      graphics.fillStyle(Colors.ROAD, 1);
-      graphics.fillRect(0, roadY, size, roadWidth);
-    }
+    (missionsLayer.objects as unknown as MapObject[]).forEach(obj => {
+      const props = this.parseObjectProperties(obj);
+      this.missionPoints.push({
+        name: obj.name,
+        x: obj.x,
+        y: obj.y,
+        mission: (props.mission as string) || '',
+        role: props.role as string | undefined,
+        character: props.character as string | undefined
+      });
+    });
+  }
+
+  private loadPatrolRoutes(): void {
+    const patrolsLayer = this.map.getObjectLayer('patrols');
+    if (!patrolsLayer) return;
     
-    for (let i = 0; i < 8; i++) {
-      const bx = random(i * 30 + 200) * (size - 64);
-      const by = random(i * 30 + 201) * (size - 64);
-      const bw = 32 + random(i * 30 + 202) * 48;
-      const bh = 32 + random(i * 30 + 203) * 48;
+    (patrolsLayer.objects as unknown as Array<MapObject & { polyline?: Array<{x: number, y: number}> }>).forEach(obj => {
+      const props = this.parseObjectProperties(obj);
+      const polyline = obj.polyline || [];
       
-      graphics.fillStyle(Colors.BUILDING, 1);
-      graphics.fillRect(bx, by, bw, bh);
+      const points: Position[] = polyline.map(p => ({
+        x: p.x + obj.x,
+        y: p.y + obj.y
+      }));
       
-      graphics.lineStyle(1, Colors.NEON_CYAN, 0.3);
-      graphics.strokeRect(bx, by, bw, bh);
-    }
-    
-    if (chunkY > 15 || (chunkX > 10 && chunkY > 10)) {
-      graphics.fillStyle(Colors.WATER, 0.8);
-      graphics.fillRect(0, size * 0.7, size, size * 0.3);
-    }
-    
-    container.add(graphics);
+      this.patrolRoutes.push({
+        name: obj.name,
+        points,
+        character: (props.character as string) || 'guard',
+        mission: (props.mission as string) || ''
+      });
+    });
   }
 
   private setupPlayer(): void {
-    const startLandmark = getLandmarkById('railway_station');
-    const startX = startLandmark ? startLandmark.pixelPosition.x + 800 : 400;
-    const startY = startLandmark ? startLandmark.pixelPosition.y + 600 : 300;
+    // Find player spawn point from map
+    const spawnPoint = this.missionPoints.find(p => p.name === 'player_spawn');
+    const startX = spawnPoint ? spawnPoint.x : 741;
+    const startY = spawnPoint ? spawnPoint.y : 786;
     
     this.playerContainer = this.add.container(startX, startY);
     
     const characterId = this.gameState.getState().player.characterId;
-    this.player = this.add.sprite(0, 0, `character_${characterId}`);
+    const spriteKey = mapCharacterIdToSpriteKey(characterId);
+    
+    this.player = this.add.sprite(0, 0, spriteKey);
     this.player.setOrigin(0.5, 1);
+    this.player.play(`${spriteKey}-idle-down`);
     
     this.playerContainer.add(this.player);
     
+    // Add Bolbol drone for Adel
+    this.drone = this.add.sprite(-14, -30, 'bolbol');
+    this.drone.setOrigin(0.5, 0.5);
+    this.drone.play('bolbol-hover');
+    this.drone.setVisible(characterId === 'adel');
+    this.playerContainer.add(this.drone);
+    
+    // Name tag
     const nameTag = this.add.text(0, -40, CharacterStats[characterId].name, {
       fontSize: '8px',
       color: '#ffffff',
@@ -154,47 +245,85 @@ export class GameScene extends Phaser.Scene {
     }).setOrigin(0.5);
     this.playerContainer.add(nameTag);
     
+    // Physics
     this.physics.world.enable(this.playerContainer);
     const body = this.playerContainer.body as Phaser.Physics.Arcade.Body;
     body.setCollideWorldBounds(true);
     body.setSize(16, 16);
     body.setOffset(-8, -16);
     
+    // Collision with map
+    this.physics.add.collider(this.playerContainer, this.collisionLayer);
+    
     this.gameState.updatePlayerPosition({ x: startX, y: startY });
   }
 
   private setupCamera(): void {
-    this.cameras.main.startFollow(this.playerContainer, true, GameConfig.CAMERA_LERP, GameConfig.CAMERA_LERP);
-    this.cameras.main.setZoom(2);
-    this.cameras.main.setBounds(0, 0, 1500 * GameConfig.TILE_SIZE, 800 * GameConfig.TILE_SIZE);
+    const cam = this.cameras.main;
+    cam.setRoundPixels(true);
+    cam.setZoom(3); // Integer zoom for pixel-perfect
+    cam.startFollow(this.playerContainer, true, 0.1, 0.1);
+    cam.setBounds(0, 0, this.map.widthInPixels, this.map.heightInPixels);
+    cam.setDeadzone(32, 32);
+  }
+
+  private setupNPCs(): void {
+    // Find NPC positions from mission points
+    const npcPoints = this.missionPoints.filter(p => p.name.startsWith('npc_'));
+    
+    npcPoints.forEach(point => {
+      const characterId = point.character || point.name.replace('npc_', '');
+      const spriteKey = mapCharacterIdToSpriteKey(characterId);
+      
+      if (!this.textures.exists(spriteKey)) {
+        console.warn(`NPC sprite not found: ${spriteKey}`);
+        return;
+      }
+      
+      const npc = this.add.sprite(point.x, point.y, spriteKey);
+      npc.setOrigin(0.5, 1);
+      npc.play(`${spriteKey}-idle-down`);
+      npc.setDepth(point.y);
+      
+      this.npcs.set(characterId, npc);
+    });
   }
 
   private setupEnemies(): void {
     const currentMission = this.gameState.getState().currentMission;
-    const patrols = getPatrolsForMission(currentMission);
+    const missionKey = `ismailia-${currentMission}`;
     
-    patrols.forEach((route, index) => {
-      const enemyState = createPatrolEnemy(`enemy_${currentMission}_${index}`, route);
-      this.gameState.addEnemy(enemyState);
+    // Find patrols for current mission
+    const relevantPatrols = this.patrolRoutes.filter(p => p.mission === missionKey);
+    
+    relevantPatrols.forEach((route, index) => {
+      const startPos = route.points[0] || { x: 500, y: 500 };
+      const spriteKey = mapCharacterIdToSpriteKey(route.character);
       
-      const enemySprite = this.add.sprite(
-        enemyState.position.x,
-        enemyState.position.y,
-        'character_enemy'
-      ).setOrigin(0.5, 1);
+      const enemy = this.add.sprite(startPos.x, startPos.y, spriteKey);
+      enemy.setOrigin(0.5, 1);
+      enemy.play(`${spriteKey}-walk-down`);
       
-      this.enemies.set(enemyState.id, enemySprite);
+      const enemyId = `${route.name}_${index}`;
+      this.enemies.set(enemyId, enemy);
       
-      const detectionCircle = this.add.circle(
-        enemyState.position.x,
-        enemyState.position.y,
-        enemyState.detectionRadius,
-        Colors.HORUS_RED,
-        0.1
-      );
-      detectionCircle.setStrokeStyle(1, Colors.HORUS_RED, 0.3);
+      // Store patrol data in enemy
+      (enemy as unknown as { patrolRoute: PatrolRoute, patrolIndex: number, patrolProgress: number }).patrolRoute = route;
+      (enemy as unknown as { patrolRoute: PatrolRoute, patrolIndex: number, patrolProgress: number }).patrolIndex = 0;
+      (enemy as unknown as { patrolRoute: PatrolRoute, patrolIndex: number, patrolProgress: number }).patrolProgress = 0;
       
-      this.mapContainer.add([detectionCircle, enemySprite]);
+      // Add to game state
+      this.gameState.addEnemy({
+        id: enemyId,
+        type: 'patrol',
+        position: { ...startPos },
+        patrolPath: route.points,
+        patrolIndex: 0,
+        alertLevel: 'idle',
+        detectionRadius: 48,
+        facing: 'down',
+        isActive: true
+      });
     });
   }
 
@@ -202,42 +331,30 @@ export class GameScene extends Phaser.Scene {
     const mission = this.gameState.getCurrentMission();
     if (!mission) return;
     
-    mission.objectives.forEach((objective, index) => {
-      let targetPos: Position;
+    // Map objective IDs to mission point names
+    const objectiveToPoint: Record<string, string> = {
+      'm1_reach_station': 'm1_station_cameras_hack',
+      'm1_blind_cameras': 'm1_station_cameras_hack',
+      'm1_cross_checkpoint': 'm1_checkpoint',
+      'm2_reach_gumhuriya': 'm2_patrol_mesh_box',
+      'm2_copy_patrol_mesh': 'm2_patrol_mesh_box',
+      'm2_cross_quarter': 'm1_old_town_alley',
+      'm3_retrieve_key': 'm3_override_token',
+      'm3_decrypt_token': 'm3_canal_records',
+      'm3_repair_bridge': 'm3_bridge3_crank',
+      'm3_cross_canal': 'm3_win_lake_side'
+    };
+    
+    mission.objectives.forEach(objective => {
+      const pointName = objectiveToPoint[objective.id];
+      const point = this.missionPoints.find(p => p.name === pointName);
       
-      switch (objective.id) {
-        case 'm1_reach_station':
-          targetPos = { x: 450, y: 350 };
-          break;
-        case 'm1_blind_cameras':
-          targetPos = { x: 500, y: 300 };
-          break;
-        case 'm1_cross_checkpoint':
-          targetPos = { x: 600, y: 400 };
-          break;
-        case 'm2_reach_gumhuriya':
-          targetPos = { x: 700, y: 350 };
-          break;
-        case 'm2_copy_patrol_mesh':
-          targetPos = { x: 750, y: 320 };
-          break;
-        case 'm2_cross_quarter':
-          targetPos = { x: 850, y: 380 };
-          break;
-        case 'm3_retrieve_key':
-          targetPos = { x: 900, y: 400 };
-          break;
-        case 'm3_decrypt_token':
-          targetPos = { x: 950, y: 350 };
-          break;
-        case 'm3_repair_bridge':
-          targetPos = { x: 1000, y: 420 };
-          break;
-        case 'm3_cross_canal':
-          targetPos = { x: 1100, y: 400 };
-          break;
-        default:
-          targetPos = { x: 400 + index * 100, y: 300 };
+      let targetPos: Position;
+      if (point) {
+        targetPos = { x: point.x, y: point.y };
+      } else {
+        // Fallback positions
+        targetPos = { x: 800, y: 1000 };
       }
       
       objective.targetPosition = targetPos;
@@ -250,33 +367,9 @@ export class GameScene extends Phaser.Scene {
         0.2
       );
       marker.setStrokeStyle(2, objective.isActive ? Colors.NEON_CYAN : 0x444444, 0.5);
+      marker.setDepth(targetPos.y);
       
       this.objectives.set(objective.id, marker);
-      this.mapContainer.add(marker);
-    });
-  }
-
-  private setupLandmarks(): void {
-    const relevantLandmarks = ismailiaLandmarks.filter(l => 
-      l.missionRelevance?.includes(this.gameState.getState().currentMission)
-    );
-    
-    relevantLandmarks.forEach(landmark => {
-      const container = this.add.container(landmark.pixelPosition.x + 800, landmark.pixelPosition.y + 600);
-      
-      const building = this.add.rectangle(0, 0, 48, 48, Colors.BUILDING);
-      building.setStrokeStyle(2, Colors.NEON_MAGENTA);
-      
-      const label = this.add.text(0, -35, landmark.nameEn, {
-        fontSize: '8px',
-        color: '#ffffff',
-        backgroundColor: '#000000cc',
-        padding: { x: 2, y: 1 }
-      }).setOrigin(0.5);
-      
-      container.add([building, label]);
-      this.landmarks.set(landmark.id, container);
-      this.mapContainer.add(container);
     });
   }
 
@@ -284,11 +377,40 @@ export class GameScene extends Phaser.Scene {
     const mission = this.gameState.getCurrentMission();
     if (!mission) return;
     
-    const dialogueSeq = getDialogueForTrigger(`mission${mission.id}_start`);
-    if (dialogueSeq) {
-      dialogueSeq.entries.forEach(entry => {
-        this.gameState.queueDialogue(entry);
-      });
+    // Queue mission start dialogue
+    const missionDialogues: Record<number, DialogueEntry[]> = {
+      1: [{
+        speakerId: 'nour',
+        speakerName: 'Nour Hassan',
+        speakerNameAr: 'نور حسن',
+        textEn: "The railway station checkpoint. We need to loop the cameras first.",
+        textAr: "نقطة تفتيش محطة السكة الحديد. لازم نعمي الكاميرات الأول.",
+        isPortraitDialogue: true,
+        emotion: 'neutral'
+      }],
+      2: [{
+        speakerId: 'laila',
+        speakerName: 'Laila Farouk',
+        speakerNameAr: 'ليلى فاروق',
+        textEn: "Hay el-Afrang. Karim knows the patrol schedule here.",
+        textAr: "حي الأفرنج. كريم يعرف جدول الدوريات هنا.",
+        isPortraitDialogue: true,
+        emotion: 'neutral'
+      }],
+      3: [{
+        speakerId: 'adel',
+        speakerName: 'Adel Mansour',
+        speakerNameAr: 'عادل منصور',
+        textEn: "The quay and Bridge 3. Hajj Rashid has the routing token.",
+        textAr: "الرصيف وكوبري ٣. الحاج رشيد عنده توكن الإرشاد.",
+        isPortraitDialogue: true,
+        emotion: 'neutral'
+      }]
+    };
+    
+    const dialogues = missionDialogues[mission.id];
+    if (dialogues) {
+      dialogues.forEach(entry => this.gameState.queueDialogue(entry));
     }
   }
 
@@ -300,14 +422,68 @@ export class GameScene extends Phaser.Scene {
     this.handlePlayerActions(input);
     
     this.updateEnemies(time);
+    this.updateSpriteCulling();
     this.checkObjectives();
-    this.checkDetection();
-    this.updateChunkLoading();
+    this.updatePlayerDepth();
+    
+    // Update drone hover bob
+    if (this.drone.visible) {
+      const bobOffset = Math.sin(time * 0.004) * 2;
+      this.drone.setPosition(-14, -30 + bobOffset);
+    }
+  }
+
+  private updateSpriteCulling(): void {
+    const cam = this.cameras.main;
+    const scrollX = cam.scrollX;
+    const scrollY = cam.scrollY;
+    const viewWidth = cam.width / cam.zoom;
+    const viewHeight = cam.height / cam.zoom;
+    
+    this.cullBounds = {
+      x: scrollX - this.cullMargin,
+      y: scrollY - this.cullMargin,
+      width: viewWidth + this.cullMargin * 2,
+      height: viewHeight + this.cullMargin * 2
+    };
+    
+    // Cull sprites based on camera view
+    this.mapSprites.forEach(ms => {
+      const inView = 
+        ms.x >= this.cullBounds.x &&
+        ms.x <= this.cullBounds.x + this.cullBounds.width &&
+        ms.y >= this.cullBounds.y &&
+        ms.y <= this.cullBounds.y + this.cullBounds.height;
+      
+      if (inView !== ms.visible) {
+        ms.sprite.setVisible(inView);
+        ms.visible = inView;
+      }
+    });
+  }
+
+  private updatePlayerDepth(): void {
+    // Set player depth based on Y position for proper z-sorting
+    this.playerContainer.setDepth(this.playerContainer.y);
+    
+    // Update NPC depths
+    this.npcs.forEach(npc => {
+      npc.setDepth(npc.y);
+    });
+    
+    // Update enemy depths
+    this.enemies.forEach(enemy => {
+      enemy.setDepth(enemy.y);
+    });
   }
 
   private handlePlayerMovement(input: { moveX: number; moveY: number; sprint: boolean }): void {
     const state = this.gameState.getState();
-    if (state.player.inDialogue) return;
+    if (state.player.inDialogue) {
+      const body = this.playerContainer.body as Phaser.Physics.Arcade.Body;
+      body.setVelocity(0, 0);
+      return;
+    }
     
     const stats = CharacterStats[state.player.characterId];
     let speed = GameConfig.PLAYER_SPEED * (stats.speed / 3);
@@ -322,23 +498,49 @@ export class GameScene extends Phaser.Scene {
     const body = this.playerContainer.body as Phaser.Physics.Arcade.Body;
     body.setVelocity(input.moveX * speed, input.moveY * speed);
     
+    const spriteKey = mapCharacterIdToSpriteKey(state.player.characterId);
+    
     if (input.moveX !== 0 || input.moveY !== 0) {
       this.gameState.updatePlayerVelocity({ x: input.moveX, y: input.moveY });
       
+      // Determine direction
+      let direction = this.lastDirection;
       if (Math.abs(input.moveX) > Math.abs(input.moveY)) {
-        this.gameState.setPlayerFacing(input.moveX > 0 ? 'right' : 'left');
+        direction = input.moveX > 0 ? 'right' : 'left';
       } else {
-        this.gameState.setPlayerFacing(input.moveY > 0 ? 'down' : 'up');
+        direction = input.moveY > 0 ? 'down' : 'up';
+      }
+      this.lastDirection = direction;
+      this.gameState.setPlayerFacing(direction as 'up' | 'down' | 'left' | 'right');
+      
+      // Play directional walk animation
+      const animKey = `${spriteKey}-walk-${direction}`;
+      if (this.player.anims.currentAnim?.key !== animKey) {
+        this.player.play(animKey, true);
       }
       
-      this.player.play(`${state.player.characterId}_walk`, true);
+      // Update drone direction if visible
+      if (this.drone.visible) {
+        const droneAnimKey = `bolbol-hover-${direction}`;
+        if (this.drone.anims.currentAnim?.key !== droneAnimKey) {
+          this.drone.play(droneAnimKey, true);
+        }
+      }
     } else {
-      this.player.play(`${state.player.characterId}_idle`, true);
+      // Idle animation
+      const animKey = `${spriteKey}-idle-${this.lastDirection}`;
+      if (this.player.anims.currentAnim?.key !== animKey) {
+        this.player.play(animKey, true);
+      }
     }
     
-    this.gameState.updatePlayerPosition({ 
-      x: this.playerContainer.x, 
-      y: this.playerContainer.y 
+    // Round position for pixel-perfect rendering
+    this.playerContainer.x = Math.round(this.playerContainer.x);
+    this.playerContainer.y = Math.round(this.playerContainer.y);
+    
+    this.gameState.updatePlayerPosition({
+      x: this.playerContainer.x,
+      y: this.playerContainer.y
     });
   }
 
@@ -353,15 +555,22 @@ export class GameScene extends Phaser.Scene {
   }
 
   private cycleCharacter(): void {
-    const characters: CharacterId[] = ['nour', 'adel', 'laila'];
-    const currentIndex = characters.indexOf(this.gameState.getState().player.characterId);
-    const nextIndex = (currentIndex + 1) % characters.length;
-    const nextCharacter = characters[nextIndex];
+    const currentIndex = PLAYABLE_CHARACTERS.indexOf(
+      this.gameState.getState().player.characterId as typeof PLAYABLE_CHARACTERS[number]
+    );
+    const nextIndex = (currentIndex + 1) % PLAYABLE_CHARACTERS.length;
+    const nextCharacter = PLAYABLE_CHARACTERS[nextIndex] as CharacterId;
     
     this.gameState.switchCharacter(nextCharacter);
-    this.player.setTexture(`character_${nextCharacter}`);
     
-    const nameTag = this.playerContainer.list[1] as Phaser.GameObjects.Text;
+    const spriteKey = mapCharacterIdToSpriteKey(nextCharacter);
+    this.player.setTexture(spriteKey);
+    this.player.play(`${spriteKey}-idle-${this.lastDirection}`);
+    
+    // Show/hide drone based on character
+    this.drone.setVisible(nextCharacter === 'adel');
+    
+    const nameTag = this.playerContainer.list[2] as Phaser.GameObjects.Text;
     if (nameTag) {
       nameTag.setText(CharacterStats[nextCharacter].name);
     }
@@ -375,13 +584,6 @@ export class GameScene extends Phaser.Scene {
       
       if (!requiredChar || requiredChar === currentChar) {
         this.completeObjective(objective.id);
-      } else {
-        const dialogueSeq = getDialogueForTrigger('wrong_character');
-        if (dialogueSeq) {
-          dialogueSeq.entries.forEach(entry => {
-            this.gameState.queueDialogue(entry);
-          });
-        }
       }
     }
   }
@@ -418,26 +620,55 @@ export class GameScene extends Phaser.Scene {
         this.scene.start('ToBeContinuedScene');
       });
     } else {
+      // Clear old markers
+      this.objectives.forEach(marker => marker.destroy());
+      this.objectives.clear();
+      
       this.setupObjectives();
       this.triggerMissionStart();
     }
   }
 
   private updateEnemies(_time: number): void {
-    const state = this.gameState.getState();
-    const currentMission = state.currentMission;
-    const patrols = getPatrolsForMission(currentMission);
-    
-    patrols.forEach((route, index) => {
-      const enemyId = `enemy_${currentMission}_${index}`;
-      const enemySprite = this.enemies.get(enemyId);
+    this.enemies.forEach((enemy, enemyId) => {
+      const data = enemy as unknown as { patrolRoute: PatrolRoute, patrolIndex: number, patrolProgress: number };
+      const route = data.patrolRoute;
       
-      if (enemySprite) {
-        const { position } = getPatrolPosition(route, state.gameTime);
-        enemySprite.setPosition(position.x, position.y);
-        
-        this.gameState.updateEnemy(enemyId, { position });
+      if (!route || route.points.length < 2) return;
+      
+      // Update patrol progress
+      data.patrolProgress += 0.001;
+      if (data.patrolProgress >= 1) {
+        data.patrolProgress = 0;
+        data.patrolIndex = (data.patrolIndex + 1) % route.points.length;
       }
+      
+      const currentPoint = route.points[data.patrolIndex];
+      const nextPoint = route.points[(data.patrolIndex + 1) % route.points.length];
+      
+      // Interpolate position
+      const x = currentPoint.x + (nextPoint.x - currentPoint.x) * data.patrolProgress;
+      const y = currentPoint.y + (nextPoint.y - currentPoint.y) * data.patrolProgress;
+      
+      enemy.setPosition(Math.round(x), Math.round(y));
+      
+      // Determine direction
+      const dx = nextPoint.x - currentPoint.x;
+      const dy = nextPoint.y - currentPoint.y;
+      let direction = 'down';
+      if (Math.abs(dx) > Math.abs(dy)) {
+        direction = dx > 0 ? 'right' : 'left';
+      } else {
+        direction = dy > 0 ? 'down' : 'up';
+      }
+      
+      const spriteKey = mapCharacterIdToSpriteKey(route.character);
+      const animKey = `${spriteKey}-walk-${direction}`;
+      if (enemy.anims.currentAnim?.key !== animKey) {
+        enemy.play(animKey, true);
+      }
+      
+      this.gameState.updateEnemy(enemyId, { position: { x, y } });
     });
   }
 
@@ -461,34 +692,14 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  private checkDetection(): void {
-    const state = this.gameState.getState();
-    const playerPos = state.player.position;
-    const stats = CharacterStats[state.player.characterId];
-    
-    for (const enemy of state.enemies) {
-      if (isPlayerDetected(playerPos, enemy.position, enemy.detectionRadius, stats.stealth)) {
-        if (!state.player.isSprinting) {
-          this.gameState.updateEnemy(enemy.id, { alertLevel: 'suspicious' });
-        } else {
-          this.gameState.updateEnemy(enemy.id, { alertLevel: 'alert' });
-        }
-      } else {
-        this.gameState.updateEnemy(enemy.id, { alertLevel: 'idle' });
-      }
-    }
-  }
-
-  private updateChunkLoading(): void {
-    // Chunk loading/unloading based on camera position
-    // For now, all visible chunks are pre-loaded
-  }
-
   shutdown(): void {
     this.inputManager?.destroy();
-    this.chunks.clear();
+    this.mapSprites = [];
+    this.visibleSprites.clear();
     this.enemies.clear();
-    this.landmarks.clear();
+    this.npcs.clear();
     this.objectives.clear();
+    this.patrolRoutes = [];
+    this.missionPoints = [];
   }
 }
