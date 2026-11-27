@@ -40,10 +40,15 @@ export class MainMenuScene extends Phaser.Scene {
       color: '#888888'
     }).setOrigin(0.5);
 
-    this.startButton = this.createButton(centerX, centerY + 60, 'START', () => {
+    const startGame = () => {
       GameState.getInstance().reset();
       this.scene.start('GameScene');
-    });
+    };
+
+    this.startButton = this.createButton(centerX, centerY + 60, 'START', startGame);
+
+    this.input.keyboard?.on('keydown-SPACE', startGame);
+    this.input.keyboard?.on('keydown-ENTER', startGame);
 
     this.add.text(centerX, height - 30, 'Touch to play • Swipe to move • Tap action buttons', {
       fontFamily: 'monospace',

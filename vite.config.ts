@@ -5,6 +5,7 @@ export default defineConfig({
   plugins: [
     VitePWA({
       registerType: 'autoUpdate',
+      injectRegister: 'auto',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
       manifest: {
         name: 'Nile Grid',
@@ -34,16 +35,25 @@ export default defineConfig({
         ]
       },
       workbox: {
+        // Bump cacheId when deploy must invalidate stale broken clients
+        cacheId: 'nile-grid-v2',
         globPatterns: ['**/*.{js,css,html,ico,png,svg,json}'],
+        // Ground tileset is ~2.3MB; include it so offline/PWA doesn't miss critical art
+        maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
+        skipWaiting: true,
+        clientsClaim: true,
+        cleanupOutdatedCaches: true,
+        navigateFallback: null,
         runtimeCaching: [
           {
-            urlPattern: /^https:\/\/.*\.(?:png|jpg|jpeg|svg|gif)$/,
-            handler: 'CacheFirst',
+            urlPattern: ({ url }) => url.pathname.startsWith('/art/'),
+            handler: 'NetworkFirst',
             options: {
-              cacheName: 'images',
+              cacheName: 'nile-grid-art-v2',
+              networkTimeoutSeconds: 10,
               expiration: {
-                maxEntries: 100,
-                maxAgeSeconds: 60 * 60 * 24 * 30
+                maxEntries: 200,
+                maxAgeSeconds: 60 * 60 * 24 * 7
               }
             }
           }

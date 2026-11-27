@@ -1,14 +1,16 @@
 import { defineConfig, devices } from '@playwright/test';
 
+const isProduction = process.env.TEST_MODE === 'production';
+
 export default defineConfig({
   testDir: './e2e',
-  fullyParallel: true,
+  fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
-  reporter: 'html',
+  workers: 1,
+  reporter: 'list',
   use: {
-    baseURL: 'http://localhost:3000',
+    baseURL: isProduction ? 'http://localhost:4173' : 'http://localhost:3000',
     trace: 'on-first-retry',
     video: 'retain-on-failure',
   },
@@ -17,15 +19,21 @@ export default defineConfig({
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
     },
-    {
-      name: 'Mobile Chrome',
-      use: { ...devices['Pixel 5'] },
-    },
+    ...(isProduction
+      ? []
+      : [
+          {
+            name: 'Mobile Chrome',
+            use: { ...devices['Pixel 5'] },
+          },
+        ]),
   ],
   webServer: {
-    command: 'npm run dev',
-    url: 'http://localhost:3000',
+    command: isProduction
+      ? 'npm run build && npx vite preview --host 127.0.0.1 --port 4173'
+      : 'npm run dev -- --host 127.0.0.1 --port 3000',
+    url: isProduction ? 'http://127.0.0.1:4173' : 'http://127.0.0.1:3000',
     reuseExistingServer: !process.env.CI,
-    timeout: 120 * 1000,
+    timeout: 180 * 1000,
   },
 });

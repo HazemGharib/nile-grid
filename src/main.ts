@@ -52,12 +52,12 @@ const config: Phaser.Types.Core.GameConfig = {
 
 const game = new Phaser.Game(config);
 
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch(() => {
-      // Service worker registration failed, continue without it
-    });
-  });
+// Expose for production e2e tests and debugging
+declare global {
+  interface Window {
+    game: Phaser.Game;
+  }
 }
+window.game = game;
 
 export default game;
