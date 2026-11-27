@@ -1,6 +1,17 @@
 import Phaser from 'phaser';
 import { GameConfig, Colors } from '../config/GameConfig';
 import { GameState, DialogueEntry } from '../state/GameState';
+import { mapCharacterIdToSpriteKey } from '../assets/AssetLoader';
+
+// Emotion to frame index mapping
+// Portraits: 0 neutral, 1 happy, 2 concerned, 3 alarmed
+const EMOTION_FRAMES: Record<string, number> = {
+  'neutral': 0,
+  'happy': 1,
+  'concerned': 2,
+  'alarmed': 3,
+  'alert': 3  // alias
+};
 
 export class DialogueScene extends Phaser.Scene {
   private gameState!: GameState;
@@ -52,10 +63,12 @@ export class DialogueScene extends Phaser.Scene {
     );
     portraitBg.setStrokeStyle(1, Colors.NEON_CYAN);
     
-    const portrait = this.add.image(
+    // Portrait sprite - will use spritesheet frame
+    const portrait = this.add.sprite(
       35,
       GameConfig.DIALOGUE_BOX_HEIGHT / 2,
-      'portrait_nour_neutral'
+      'portrait-nour',
+      0
     );
     portrait.setDisplaySize(GameConfig.PORTRAIT_SIZE - 8, GameConfig.PORTRAIT_SIZE - 8);
     portrait.setVisible(false);
@@ -108,16 +121,21 @@ export class DialogueScene extends Phaser.Scene {
     
     const nameText = this.dialogueBox.getData('nameText') as Phaser.GameObjects.Text;
     const dialogueText = this.dialogueBox.getData('dialogueText') as Phaser.GameObjects.Text;
-    const portrait = this.dialogueBox.getData('portrait') as Phaser.GameObjects.Image;
+    const portrait = this.dialogueBox.getData('portrait') as Phaser.GameObjects.Sprite;
     
     nameText.setText(entry.speakerName);
     dialogueText.setText(entry.textEn);
     
+    // Get portrait texture key (convert underscore to hyphen)
+    const spriteKey = mapCharacterIdToSpriteKey(entry.speakerId);
+    const portraitKey = `portrait-${spriteKey}`;
+    
+    // Get emotion frame
     const emotion = entry.emotion || 'neutral';
-    const portraitKey = `portrait_${entry.speakerId}_${emotion}`;
+    const frameIndex = EMOTION_FRAMES[emotion] ?? 0;
     
     if (this.textures.exists(portraitKey)) {
-      portrait.setTexture(portraitKey);
+      portrait.setTexture(portraitKey, frameIndex);
       portrait.setVisible(true);
     } else {
       portrait.setVisible(false);

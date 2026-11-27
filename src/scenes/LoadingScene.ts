@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { Colors } from '../config/GameConfig';
-import { loadGameAssets, createCharacterAnimations } from '../assets/AssetLoader';
+import { loadGameAssets, createCharacterAnimations, loadSpritesIndex } from '../assets/AssetLoader';
 
 export class LoadingScene extends Phaser.Scene {
   private loadingText!: Phaser.GameObjects.Text;
@@ -13,7 +13,7 @@ export class LoadingScene extends Phaser.Scene {
     super({ key: 'LoadingScene' });
   }
 
-  preload(): void {
+  async preload(): Promise<void> {
     const { width, height } = this.scale;
     const centerX = width / 2;
     const centerY = height / 2;
@@ -40,13 +40,21 @@ export class LoadingScene extends Phaser.Scene {
       color: '#00ffff'
     }).setOrigin(0.5);
 
-    this.loadingText = this.add.text(centerX, centerY + 60, 'Loading...', {
+    this.loadingText = this.add.text(centerX, centerY + 60, 'Loading sprites index...', {
       fontFamily: 'monospace',
       fontSize: '14px',
       color: '#ffffff'
     }).setOrigin(0.5);
 
     this.drawNeonGlow(centerX, centerY - 45);
+
+    // First load the sprites index, then load all game assets
+    try {
+      await loadSpritesIndex();
+      this.loadingText.setText('Loading assets...');
+    } catch (err) {
+      console.warn('Failed to load sprites index, continuing with empty list');
+    }
 
     this.load.on('progress', (value: number) => {
       this.progressBar.clear();

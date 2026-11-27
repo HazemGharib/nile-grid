@@ -1,103 +1,131 @@
 import Phaser from 'phaser';
 
+// Character keys - note: map uses umm_sayed but sprite file is umm-sayed
+export const CHARACTERS = ['nour', 'adel', 'laila', 'guard', 'umm-sayed', 'karim', 'rashid', 'ragab'] as const;
+export const PLAYABLE_CHARACTERS = ['nour', 'adel', 'laila'] as const;
+export const PORTRAIT_CHARACTERS = ['nour', 'adel', 'laila', 'umm-sayed', 'karim', 'rashid', 'ragab'] as const;
+
+// Map character ID from map (uses underscores) to sprite key (uses hyphens)
+export function mapCharacterIdToSpriteKey(characterId: string): string {
+  return characterId.replace(/_/g, '-');
+}
+
+// Sprite index interface
+export interface SpriteInfo {
+  name: string;
+  file: string;
+  size: [number, number];
+  tiles: [number, number];
+  group: string;
+}
+
+let spritesIndex: SpriteInfo[] = [];
+
+export function getSpritesIndex(): SpriteInfo[] {
+  return spritesIndex;
+}
+
+export async function loadSpritesIndex(): Promise<SpriteInfo[]> {
+  const response = await fetch('/art/sprites/sprites.json');
+  spritesIndex = await response.json();
+  return spritesIndex;
+}
+
 export function loadGameAssets(scene: Phaser.Scene): void {
-  // Character spritesheets (96x128, 4 directions x 4 frames each)
-  // Layout: 4 columns (frames) x 4 rows (down, left, right, up)
-  scene.load.spritesheet('nour', '/sprites/nour.png', {
-    frameWidth: 24,
-    frameHeight: 32
-  });
-  scene.load.spritesheet('adel', '/sprites/adel.png', {
-    frameWidth: 24,
-    frameHeight: 32
-  });
-  scene.load.spritesheet('laila', '/sprites/laila.png', {
-    frameWidth: 24,
-    frameHeight: 32
-  });
-  scene.load.spritesheet('enemy', '/sprites/enemy.png', {
-    frameWidth: 24,
-    frameHeight: 32
+  // Character spritesheets (96x128, 24x32 frames)
+  // Rows: down, left, right, up (4 frames each)
+  CHARACTERS.forEach(key => {
+    scene.load.spritesheet(key, `/art/sheets/${key}.png`, {
+      frameWidth: 24,
+      frameHeight: 32
+    });
   });
   
-  // Drone Bulbul
-  scene.load.spritesheet('bulbul', '/sprites/bulbul.png', {
+  // Bolbol drone (64x64, 16x16 frames)
+  scene.load.spritesheet('bolbol', '/art/sheets/bolbol.png', {
     frameWidth: 16,
     frameHeight: 16
   });
-
-  // Environment tiles (16x16) - Nile Neon night-time style
-  const tiles = [
-    'water', 'water_highlight', 'sand', 'road', 'road_curb_top', 'road_curb_bottom',
-    'grass', 'quay', 'quay_edge', 'building_roof', 'building_wall', 'building_wall_dark',
-    'palm', 'neon_magenta', 'neon_cyan', 'lamp', 'railway', 'bridge', 'boat'
-  ];
   
-  for (const tile of tiles) {
-    scene.load.image(`tile_${tile}`, `/tiles/${tile}.png`);
-  }
-
-  // Character portraits (64x64) with expressions
-  const characters = ['nour', 'adel', 'laila', 'enemy', 'umm_sayed', 'karim', 'hajj_rashid'];
-  const emotions = ['neutral', 'happy', 'concerned'];
+  // Portraits (256x64 strips, 64x64 frames - 4 expressions)
+  PORTRAIT_CHARACTERS.forEach(key => {
+    scene.load.spritesheet(`portrait-${key}`, `/art/sheets/portraits/${key}.png`, {
+      frameWidth: 64,
+      frameHeight: 64
+    });
+  });
   
-  for (const char of characters) {
-    for (const emotion of emotions) {
-      scene.load.image(`portrait_${char}_${emotion}`, `/portraits/${char}_${emotion}.png`);
-    }
-  }
+  // Tiled map
+  scene.load.tilemapTiledJSON('ismailia', '/art/maps/ismailia-m1-3.json');
+  
+  // Tilesets
+  scene.load.image('ground', '/art/tilesets/ismailia-m1-3-ground.png');
+  scene.load.image('collision', '/art/tilesets/collision.png');
+  
+  // Map sprites (loaded from sprites index)
+  spritesIndex.forEach(sprite => {
+    scene.load.image(sprite.name, `/art/${sprite.file}`);
+  });
 }
 
 export function createCharacterAnimations(scene: Phaser.Scene): void {
-  const characters = ['nour', 'adel', 'laila', 'enemy'];
-  // Direction order in spritesheet: down (row 0), left (row 1), right (row 2), up (row 3)
-  const directions = ['down', 'left', 'right', 'up'];
-
-  for (const char of characters) {
-    for (let dirIdx = 0; dirIdx < directions.length; dirIdx++) {
-      const dir = directions[dirIdx];
-      const startFrame = dirIdx * 4;  // Each row has 4 frames
-      
-      // Idle animation (single frame)
+  const DIRECTIONS = ['down', 'left', 'right', 'up'] as const;
+  
+  CHARACTERS.forEach(key => {
+    DIRECTIONS.forEach((dir, rowIndex) => {
+      // Walk animation (4 frames per direction)
       scene.anims.create({
-        key: `${char}_idle_${dir}`,
-        frames: [{ key: char, frame: startFrame }],
-        frameRate: 1,
-        repeat: -1
-      });
-
-      // Walk animation (4 frames)
-      scene.anims.create({
-        key: `${char}_walk_${dir}`,
-        frames: scene.anims.generateFrameNumbers(char, {
-          start: startFrame,
-          end: startFrame + 3
+        key: `${key}-walk-${dir}`,
+        frames: scene.anims.generateFrameNumbers(key, {
+          start: rowIndex * 4,
+          end: rowIndex * 4 + 3
         }),
         frameRate: 8,
         repeat: -1
       });
-    }
-
+      
+      // Idle animation (single frame)
+      scene.anims.create({
+        key: `${key}-idle-${dir}`,
+        frames: [{ key, frame: rowIndex * 4 }],
+        frameRate: 1,
+        repeat: -1
+      });
+    });
+    
     // Default idle/walk (down direction)
     scene.anims.create({
-      key: `${char}_idle`,
-      frames: [{ key: char, frame: 0 }],
+      key: `${key}-idle`,
+      frames: [{ key, frame: 0 }],
       frameRate: 1,
       repeat: -1
     });
-
+    
     scene.anims.create({
-      key: `${char}_walk`,
-      frames: scene.anims.generateFrameNumbers(char, { start: 0, end: 3 }),
+      key: `${key}-walk`,
+      frames: scene.anims.generateFrameNumbers(key, { start: 0, end: 3 }),
       frameRate: 8,
       repeat: -1
     });
-  }
+  });
   
-  // Drone animation
+  // Bolbol hover animation (4 frames per direction, same layout as characters)
+  ['down', 'left', 'right', 'up'].forEach((dir, rowIndex) => {
+    scene.anims.create({
+      key: `bolbol-hover-${dir}`,
+      frames: scene.anims.generateFrameNumbers('bolbol', {
+        start: rowIndex * 4,
+        end: rowIndex * 4 + 3
+      }),
+      frameRate: 6,
+      repeat: -1
+    });
+  });
+  
+  // Default bolbol hover
   scene.anims.create({
-    key: 'bulbul_hover',
-    frames: scene.anims.generateFrameNumbers('bulbul', { start: 0, end: 3 }),
+    key: 'bolbol-hover',
+    frames: scene.anims.generateFrameNumbers('bolbol', { start: 0, end: 3 }),
     frameRate: 6,
     repeat: -1
   });
