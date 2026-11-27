@@ -29,6 +29,24 @@ npm run typecheck
 npm run lint
 ```
 
+## Deploy on Render
+
+Deploy this game as a free static site on [Render](https://render.com):
+
+1. Fork this repository to your GitHub account
+2. Create a new account on [Render](https://render.com) (free tier, no credit card required)
+3. Click **New** → **Blueprint** and connect your forked repository
+4. Render will detect the `render.yaml` and configure the static site automatically
+5. Click **Apply** to deploy
+
+The site will be available at `https://nile-grid.onrender.com` (or your custom subdomain).
+
+**What the Blueprint configures:**
+- Static site with Vite build output from `dist/`
+- SPA routing (all paths → `index.html` for client-side routing)
+- PWA-friendly caching: service worker and manifest are served with `no-cache`, hashed assets are long-cached
+- Pull request previews enabled for testing changes
+
 ## Controls
 
 ### Desktop (Keyboard)

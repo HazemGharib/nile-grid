@@ -1,0 +1,49 @@
+# Render Blueprint for Nile Grid
+# Deploy as a free static site on Render
+# https://render.com/docs/blueprint-spec
+
+services:
+  - type: web
+    runtime: static
+    name: nile-grid
+    buildCommand: npm ci && npm run build
+    staticPublishPath: ./dist
+    pullRequestPreviewsEnabled: true
+    
+    # SPA routing - redirect all paths to index.html
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+
+    # Cache headers
+    headers:
+      # Service worker and manifest should not be cached
+      - path: /sw.js
+        name: Cache-Control
+        value: no-cache, no-store, must-revalidate
+      - path: /manifest.webmanifest
+        name: Cache-Control
+        value: no-cache, no-store, must-revalidate
+      - path: /workbox-*.js
+        name: Cache-Control
+        value: no-cache, no-store, must-revalidate
+      
+      # Hashed assets can be cached forever
+      - path: /assets/*
+        name: Cache-Control
+        value: public, max-age=31536000, immutable
+      
+      # Static assets (sprites, tiles, portraits, icons)
+      - path: /sprites/*
+        name: Cache-Control
+        value: public, max-age=86400
+      - path: /tiles/*
+        name: Cache-Control
+        value: public, max-age=86400
+      - path: /portraits/*
+        name: Cache-Control
+        value: public, max-age=86400
+      - path: /pwa-*.png
+        name: Cache-Control
+        value: public, max-age=86400

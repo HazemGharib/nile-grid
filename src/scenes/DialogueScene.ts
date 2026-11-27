@@ -52,14 +52,13 @@ export class DialogueScene extends Phaser.Scene {
     );
     portraitBg.setStrokeStyle(1, Colors.NEON_CYAN);
     
-    const portrait = this.add.rectangle(
+    const portrait = this.add.image(
       35,
       GameConfig.DIALOGUE_BOX_HEIGHT / 2,
-      GameConfig.PORTRAIT_SIZE - 8,
-      GameConfig.PORTRAIT_SIZE - 8,
-      Colors.NEON_MAGENTA,
-      0.3
+      'portrait_nour_neutral'
     );
+    portrait.setDisplaySize(GameConfig.PORTRAIT_SIZE - 8, GameConfig.PORTRAIT_SIZE - 8);
+    portrait.setVisible(false);
     
     const nameText = this.add.text(80, 10, '', {
       fontFamily: 'monospace',
@@ -109,17 +108,20 @@ export class DialogueScene extends Phaser.Scene {
     
     const nameText = this.dialogueBox.getData('nameText') as Phaser.GameObjects.Text;
     const dialogueText = this.dialogueBox.getData('dialogueText') as Phaser.GameObjects.Text;
-    const portrait = this.dialogueBox.getData('portrait') as Phaser.GameObjects.Rectangle;
+    const portrait = this.dialogueBox.getData('portrait') as Phaser.GameObjects.Image;
     
     nameText.setText(entry.speakerName);
     dialogueText.setText(entry.textEn);
     
-    const colorMap: Record<string, number> = {
-      nour: Colors.NEON_MAGENTA,
-      adel: Colors.NEON_GOLD,
-      laila: Colors.NEON_CYAN
-    };
-    portrait.setFillStyle(colorMap[entry.speakerId] || 0x666666, 0.4);
+    const emotion = entry.emotion || 'neutral';
+    const portraitKey = `portrait_${entry.speakerId}_${emotion}`;
+    
+    if (this.textures.exists(portraitKey)) {
+      portrait.setTexture(portraitKey);
+      portrait.setVisible(true);
+    } else {
+      portrait.setVisible(false);
+    }
     
     this.input.once('pointerdown', () => this.advanceDialogue());
     if (this.input.keyboard) {

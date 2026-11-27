@@ -87,50 +87,101 @@ export class GameScene extends Phaser.Scene {
   }
 
   private generateChunkContent(container: Phaser.GameObjects.Container, chunkX: number, chunkY: number, size: number): void {
-    const graphics = this.add.graphics();
+    const tileSize = GameConfig.TILE_SIZE;
+    const tilesPerChunk = size / tileSize;
     
     const baseSeed = chunkX * 1000 + chunkY;
     const random = (offset: number) => {
       const x = Math.sin(baseSeed + offset) * 10000;
       return x - Math.floor(x);
     };
-    
-    graphics.fillStyle(Colors.SAND, 1);
-    graphics.fillRect(0, 0, size, size);
-    
+
+    const tileGrid: string[][] = [];
+    for (let ty = 0; ty < tilesPerChunk; ty++) {
+      tileGrid[ty] = [];
+      for (let tx = 0; tx < tilesPerChunk; tx++) {
+        tileGrid[ty][tx] = 'tile_sand';
+      }
+    }
+
     for (let i = 0; i < 5; i++) {
-      const roadX = random(i * 10) * size;
-      const roadWidth = 16 + random(i * 10 + 1) * 16;
-      graphics.fillStyle(Colors.ROAD, 1);
-      graphics.fillRect(roadX, 0, roadWidth, size);
+      const roadStartTile = Math.floor(random(i * 10) * tilesPerChunk);
+      const roadWidthTiles = 1 + Math.floor(random(i * 10 + 1) * 2);
+      for (let ty = 0; ty < tilesPerChunk; ty++) {
+        for (let w = 0; w < roadWidthTiles; w++) {
+          const tx = roadStartTile + w;
+          if (tx < tilesPerChunk) {
+            tileGrid[ty][tx] = 'tile_road';
+          }
+        }
+      }
     }
-    
+
     for (let i = 0; i < 3; i++) {
-      const roadY = random(i * 20 + 100) * size;
-      const roadWidth = 16 + random(i * 20 + 101) * 16;
-      graphics.fillStyle(Colors.ROAD, 1);
-      graphics.fillRect(0, roadY, size, roadWidth);
+      const roadStartTile = Math.floor(random(i * 20 + 100) * tilesPerChunk);
+      const roadWidthTiles = 1 + Math.floor(random(i * 20 + 101) * 2);
+      for (let tx = 0; tx < tilesPerChunk; tx++) {
+        for (let w = 0; w < roadWidthTiles; w++) {
+          const ty = roadStartTile + w;
+          if (ty < tilesPerChunk) {
+            tileGrid[ty][tx] = 'tile_road';
+          }
+        }
+      }
     }
-    
+
     for (let i = 0; i < 8; i++) {
-      const bx = random(i * 30 + 200) * (size - 64);
-      const by = random(i * 30 + 201) * (size - 64);
-      const bw = 32 + random(i * 30 + 202) * 48;
-      const bh = 32 + random(i * 30 + 203) * 48;
+      const bxTile = Math.floor(random(i * 30 + 200) * (tilesPerChunk - 4));
+      const byTile = Math.floor(random(i * 30 + 201) * (tilesPerChunk - 4));
+      const bwTiles = 2 + Math.floor(random(i * 30 + 202) * 3);
+      const bhTiles = 2 + Math.floor(random(i * 30 + 203) * 3);
       
-      graphics.fillStyle(Colors.BUILDING, 1);
-      graphics.fillRect(bx, by, bw, bh);
+      for (let dy = 0; dy < bhTiles; dy++) {
+        for (let dx = 0; dx < bwTiles; dx++) {
+          const ty = byTile + dy;
+          const tx = bxTile + dx;
+          if (ty < tilesPerChunk && tx < tilesPerChunk) {
+            if (dy === 0 || dy === bhTiles - 1 || dx === 0 || dx === bwTiles - 1) {
+              tileGrid[ty][tx] = 'tile_building_wall';
+            } else {
+              tileGrid[ty][tx] = 'tile_building';
+            }
+          }
+        }
+      }
+    }
+
+    const isWaterChunk = chunkY > 15 || (chunkX > 10 && chunkY > 10);
+    if (isWaterChunk) {
+      const waterStartRow = Math.floor(tilesPerChunk * 0.7);
+      for (let ty = waterStartRow; ty < tilesPerChunk; ty++) {
+        for (let tx = 0; tx < tilesPerChunk; tx++) {
+          if (ty === waterStartRow) {
+            tileGrid[ty][tx] = 'tile_canal';
+          } else {
+            tileGrid[ty][tx] = 'tile_water';
+          }
+        }
+      }
       
-      graphics.lineStyle(1, Colors.NEON_CYAN, 0.3);
-      graphics.strokeRect(bx, by, bw, bh);
+      const bridgeX = Math.floor(tilesPerChunk * 0.4);
+      for (let ty = waterStartRow; ty < tilesPerChunk; ty++) {
+        for (let bw = 0; bw < 2; bw++) {
+          if (bridgeX + bw < tilesPerChunk) {
+            tileGrid[ty][bridgeX + bw] = 'tile_bridge';
+          }
+        }
+      }
     }
-    
-    if (chunkY > 15 || (chunkX > 10 && chunkY > 10)) {
-      graphics.fillStyle(Colors.WATER, 0.8);
-      graphics.fillRect(0, size * 0.7, size, size * 0.3);
+
+    for (let ty = 0; ty < tilesPerChunk; ty++) {
+      for (let tx = 0; tx < tilesPerChunk; tx++) {
+        const tileKey = tileGrid[ty][tx];
+        const tile = this.add.image(tx * tileSize, ty * tileSize, tileKey);
+        tile.setOrigin(0, 0);
+        container.add(tile);
+      }
     }
-    
-    container.add(graphics);
   }
 
   private setupPlayer(): void {
@@ -141,7 +192,7 @@ export class GameScene extends Phaser.Scene {
     this.playerContainer = this.add.container(startX, startY);
     
     const characterId = this.gameState.getState().player.characterId;
-    this.player = this.add.sprite(0, 0, `character_${characterId}`);
+    this.player = this.add.sprite(0, 0, characterId);
     this.player.setOrigin(0.5, 1);
     
     this.playerContainer.add(this.player);
@@ -180,7 +231,7 @@ export class GameScene extends Phaser.Scene {
       const enemySprite = this.add.sprite(
         enemyState.position.x,
         enemyState.position.y,
-        'character_enemy'
+        'enemy'
       ).setOrigin(0.5, 1);
       
       this.enemies.set(enemyState.id, enemySprite);

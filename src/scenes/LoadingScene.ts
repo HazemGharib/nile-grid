@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { Colors } from '../config/GameConfig';
-import { generatePlaceholderSprites } from '../assets/PlaceholderAssets';
+import { loadGameAssets, createCharacterAnimations } from '../assets/AssetLoader';
 
 export class LoadingScene extends Phaser.Scene {
   private loadingText!: Phaser.GameObjects.Text;
@@ -56,14 +56,13 @@ export class LoadingScene extends Phaser.Scene {
 
     this.load.on('complete', () => {
       this.loadingText.setText('Ready!');
+      createCharacterAnimations(this);
       this.time.delayedCall(500, () => {
         this.scene.start('MainMenuScene');
       });
     });
 
-    generatePlaceholderSprites(this);
-
-    this.load.start();
+    loadGameAssets(this);
   }
 
   private drawNeonGlow(x: number, y: number): void {
